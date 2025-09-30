@@ -16,7 +16,13 @@ npm install ssignal
 ```js
 import SSignal from 'ssignal';
 
-// { ABAP: '(abap)', ActionScript: '(as)', ... }
+const clientSubscriptor = (val) => console.log(val); // log CustomEvent with value 12, 13
+
+const signal = new SSignal(10);
+signal.subscribe(clientSubscriptor)
+
+signal.value = 12;
+signal.value = 23;
 ```
 
 ## ¿Qué es esto?
@@ -35,4 +41,4 @@ MIT
 
 ---
 
-Repositorio: https://github.com/ElJijuna/cloc-
+Repositorio: https://github.com/ElJijuna/ssignal
