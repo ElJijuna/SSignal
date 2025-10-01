@@ -1,19 +1,86 @@
 import SSignal from '../ssignal';
 
 describe('SSignal', () => {
-  it('SSignal instance number', () => {
+  it('should instance number', () => {
     const signal = new SSignal<number>(10);
 
     expect(signal.value).toBe(10);
   });
 
-  it('SSignal instance function value', () => {
-    const value = () => 66;
-    const signal = new SSignal<any>(value);
+  it('should update the value correctly when a function is provided', () => {
+    const signal = new SSignal<number>(5);
+    const mockCallback = jest.fn();
+    signal.subscribe(mockCallback);
 
-    signal.value = value;
+    signal.value = ((prev: number): number => prev * 2) as any satisfies number;
 
-    expect(signal.value).toBe(value);
+    expect(signal.value).toBe(10);
+    expect(mockCallback).toHaveBeenCalledWith(10);
+  });
+
+  it('initialize correctly with a Map and reflect changes', () => {
+    const mockCallback = jest.fn();
+    const originalMap = new Map([['a', 1]]);
+    const signal = new SSignal(originalMap);
+    signal.subscribe(mockCallback);
+
+    expect(mockCallback).not.toHaveBeenCalled();
+  });
+
+  it('should update the value correctly when a Map is provided', () => {
+    const signal = new SSignal<number>(5);
+    const originalMap = new Map([['a', 1]]);
+    const mockCallback = jest.fn();
+    signal.subscribe(mockCallback);
+
+    signal.value = (originalMap) as any satisfies Map<string, number>;
+
+    expect((signal.value as any satisfies Map<string, number>).get('a')).toBe(1);
+    expect(mockCallback).toHaveReturnedTimes(1);
+  });
+
+  it('should dispatch an event when modifying the wrapped Map', () => {
+    const signalMap = new SSignal(new Map([['a', 1]]));
+    const mockCallback = jest.fn();
+    signalMap.subscribe(mockCallback);
+
+    signalMap.value.set('b', 2);
+    expect(mockCallback).toHaveBeenCalledTimes(1);
+    expect(signalMap.value.get('b')).toBe(2);
+
+    signalMap.value.delete('a');
+    expect(mockCallback).toHaveBeenCalledTimes(2);
+    expect(signalMap.value.has('a')).toBe(false);
+
+    signalMap.value.clear();
+    expect(mockCallback).toHaveBeenCalledTimes(3);
+    expect(signalMap.value.size).toBe(0);
+  });
+
+  it('should dispatch an event when modifying the wrapped Map', () => {
+    const signalMap = new SSignal(new Map([['a', 1]]));
+    const mockCallback = jest.fn();
+    signalMap.subscribe(mockCallback);
+
+    signalMap.value.set('b', 2);
+    expect(mockCallback).toHaveBeenCalledTimes(1);
+    expect(signalMap.value.get('b')).toBe(2);
+
+    signalMap.value.delete('a');
+    expect(mockCallback).toHaveBeenCalledTimes(2);
+    expect(signalMap.value.has('a')).toBe(false);
+
+    signalMap.value.clear();
+    expect(mockCallback).toHaveBeenCalledTimes(3);
+    expect(signalMap.value.size).toBe(0);
+  });
+
+  it('should correctly call native Map methods like entries()', () => {
+    const originalMap = new Map([['key1', 'value1'], ['key2', 'value2']]);
+    const signalMap = new SSignal(originalMap);
+
+    const entries = [...signalMap.value.entries()];
+    expect(entries).toEqual([['key1', 'value1'], ['key2', 'value2']]);
   });
 
   it('should call subscriptors when value has updated', () => {
@@ -22,28 +89,28 @@ describe('SSignal', () => {
     }
     const person1 = new Person('Ivan');
     const person2 = new Person('Junior');
-    const clientSubscriptor = jest.fn();
+    const mockCallback = jest.fn();
     const signal = new SSignal<unknown>(person1);
 
-    signal.subscribe(clientSubscriptor);
+    signal.subscribe(mockCallback);
     expect(signal.value).toStrictEqual(person1);
 
     signal.value = person2;
     signal.value = person2;
 
     expect(signal.value).toStrictEqual(person2);
-    expect(clientSubscriptor).toHaveBeenCalledTimes(1);
+    expect(mockCallback).toHaveBeenCalledTimes(1);
   });
 
   it('should call subscriptors when value has updated', () => {
-    const clientSubscriptor = jest.fn();
+    const mockCallback = jest.fn();
     const signal = new SSignal<number>(10);
-    const unsubscritbe = signal.subscribe(clientSubscriptor);
+    const unsubscritbe = signal.subscribe(mockCallback);
 
     signal.value = 12;
     unsubscritbe();
     signal.value = 12;
 
-    expect(clientSubscriptor).toHaveBeenCalledTimes(1);
+    expect(mockCallback).toHaveBeenCalledTimes(1);
   });
 });
