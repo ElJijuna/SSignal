@@ -10,9 +10,7 @@
     ".": {
       "import": "./lib/ssignal.es.js",
       "require": "./lib/ssignal.cjs.js"
-    },
-    "unpkg": "./lib/ssignal.umd.js",
-    "default": "./lib/ssignal.umd.js"
+    }
   },
   "type": "module",
   "files": [
