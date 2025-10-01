@@ -22,8 +22,32 @@ La clase SSignal emite los siguientes eventos:
 
 ## Instalación
 
+### Web (from CDN)
+
+```html
+<!DOCTYPE html>
+  <head>
+    <head>
+      <script src="https://unpkg.com/ssignal@latest/lib/ssignal.umd.js" />
+   ...
+```
+
+### Backend and Frontend apps
+
 ```sh
 npm install ssignal
+```
+
+```ts
+import SSignal from 'ssignal';
+
+const signal = new SSignal(0);
+```
+
+```js
+const SSignal = require('ssignal');
+
+const signal = new SSignal(0);
 ```
 
 ## Características destacadas

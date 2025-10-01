@@ -1,6 +1,6 @@
 {
   "name": "ssignal",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Signal Pattern",
   "main": "./lib/ssignal.cjs.js",
   "module": "./lib/ssignal.es.js",
@@ -10,9 +10,7 @@
     ".": {
       "import": "./lib/ssignal.es.js",
       "require": "./lib/ssignal.cjs.js"
-    },
-    "unpkg": "./lib/ssignal.umd.js",
-    "default": "./lib/ssignal.umd.js"
+    }
   },
   "type": "module",
   "files": [
