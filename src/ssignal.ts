@@ -1,4 +1,4 @@
-export default class SSignal<T=unknown> extends EventTarget {
+export default class SSignal<T = unknown> extends EventTarget {
   #value: T;
 
   constructor(value: T) {
@@ -11,9 +11,9 @@ export default class SSignal<T=unknown> extends EventTarget {
   }
 
   set value(newValue: T) {
-    const nextValue = typeof newValue === 'function' ? newValue(this.#value) : newValue;
+    const nextValue = typeof newValue === 'function' ? (newValue as (prev: T) => T)(this.#value) : newValue;
 
-    if (nextValue === this.#value) {
+    if (Object.is(nextValue, this.#value)) {
       return;
     }
 
@@ -21,7 +21,10 @@ export default class SSignal<T=unknown> extends EventTarget {
     this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
   }
 
-  subscribe(callback: (value: CustomEvent<T>) => void) {
-    this.addEventListener('change', (event) => callback(event as CustomEvent<T>));
+  subscribe(callback: (value: T) => void) {
+    const handler = (event: Event) => callback((event as CustomEvent<T>).detail);
+
+    this.addEventListener('change', (event) => handler(event));
+    return () => this.removeEventListener('change', handler);
   }
 }
