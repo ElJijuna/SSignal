@@ -113,4 +113,33 @@ describe('SSignal', () => {
 
     expect(mockCallback).toHaveBeenCalledTimes(1);
   });
+
+  it('should cancel the subscription when the abortcontroller is aborted', () => {
+    const signal = new SSignal<number>(0);
+    const controller = new AbortController();
+    const callback = jest.fn();
+
+    signal.subscribe(callback, { signal: controller.signal });
+    signal.value = 1;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith(1);
+
+    controller.abort();
+    signal.value = 2;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not subscribe if the signal is already aborted', () => {
+    const signal = new SSignal<number>(0);
+    const controller = new AbortController();
+    controller.abort();
+    const callback = jest.fn();
+
+    signal.subscribe(callback, { signal: controller.signal });
+    signal.value = 1;
+
+    expect(callback).not.toHaveBeenCalled();
+  });
 });
