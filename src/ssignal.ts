@@ -26,18 +26,33 @@ export default class SSignal<T = unknown> extends EventTarget {
     this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
   }
 
-  subscribe(callback: (value: T) => void) {
+  subscribe(callback: (value: T) => void, options?: { signal?: AbortSignal }) {
     const handler = (event: Event) => callback((event as CustomEvent<T>).detail);
+    this.addEventListener('change', handler);
 
-    this.addEventListener('change', (event) => handler(event));
-    return () => this.removeEventListener('change', handler);
+    const unsubscribe = () => this.removeEventListener('change', handler);
+
+    // Soporte para AbortSignal
+    if (options?.signal) {
+      if (options.signal.aborted) {
+        unsubscribe();
+      } else {
+        const abortHandler = () => {
+          unsubscribe();
+          options.signal?.removeEventListener('abort', abortHandler);
+        };
+        options.signal.addEventListener('abort', abortHandler);
+      }
+    }
+
+    return unsubscribe;
   }
 
   #Map(original: Map<any, any>): Map<any, any> {
     const self = this;
 
     return new Proxy(original, {
-      get(target, prop, receiver) {
+      get(target, prop) {
         const value = Reflect.get(target, prop);
 
         if (['set', 'delete', 'clear'].includes(String(prop))) {
@@ -52,7 +67,6 @@ export default class SSignal<T = unknown> extends EventTarget {
         if (typeof value === 'function') {
           return value.bind(target);
         }
-
 
         return value;
       },
