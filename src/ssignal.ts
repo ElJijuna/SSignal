@@ -52,7 +52,7 @@ export default class SSignal<T = unknown> extends EventTarget {
     const self = this;
 
     return new Proxy(original, {
-      get(target, prop, receiver) {
+      get(target, prop) {
         const value = Reflect.get(target, prop);
 
         if (['set', 'delete', 'clear'].includes(String(prop))) {
@@ -67,7 +67,6 @@ export default class SSignal<T = unknown> extends EventTarget {
         if (typeof value === 'function') {
           return value.bind(target);
         }
-
 
         return value;
       },
