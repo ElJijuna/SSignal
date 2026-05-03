@@ -8,9 +8,9 @@
   "unpkg": "./lib/ssignal.umd.js",
   "exports": {
     ".": {
+      "types": "./lib/index.d.ts",
       "import": "./lib/ssignal.es.js",
-      "require": "./lib/ssignal.cjs.js",
-      "types": "./lib/index.d.ts"
+      "require": "./lib/ssignal.cjs.js"
     }
   },
   "type": "module",
