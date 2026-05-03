@@ -1,3 +1,12 @@
+# [1.4.0](https://github.com/ElJijuna/ssignal/compare/v1.3.0...v1.4.0) (2026-05-03)
+
+
+### Features
+
+* add computed() derived read-only signal (closes [#21](https://github.com/ElJijuna/ssignal/issues/21)) ([f493460](https://github.com/ElJijuna/ssignal/commit/f4934603c26f92e56ee32d49c805f52819d3d1bd))
+* add immediate option to subscribe (closes [#20](https://github.com/ElJijuna/ssignal/issues/20)) ([f6210a7](https://github.com/ElJijuna/ssignal/commit/f6210a712eb636d5a230a84b7cef663bb4e229e5))
+* move types condition before import/require in exports map ([c65c903](https://github.com/ElJijuna/ssignal/commit/c65c9034952af7d76c96a7a238afa08300b8303d))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
