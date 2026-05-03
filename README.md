@@ -17,6 +17,7 @@ A lightweight, zero-dependency reactive signal built on top of the native `Event
 - **Framework-agnostic** — works in the browser, Node.js ≥ 18.7, and any runtime that supports `EventTarget`.
 - **Reactive `Map` support** — mutations via `set()`, `delete()`, and `clear()` automatically dispatch change events.
 - **Updater functions** — `signal.value = (prev) => prev + 1` for safe derived updates.
+- **Immediate mode** — `{ immediate: true }` fires the callback with the current value on subscribe.
 - **AbortSignal integration** — cancel subscriptions with a standard `AbortController`.
 - **TypeScript-first** — fully typed, zero `any` in the public API.
 - **Tree-shakeable** — `sideEffects: false`, ships ESM + CJS + UMD.
@@ -40,7 +41,7 @@ npm install ssignal
 | `new SSignal(value: T)` | Creates a signal. `Map` values are automatically wrapped in a reactive proxy. |
 | `signal.value` | Gets the current value. |
 | `signal.value = newValue \| (prev: T) => T` | Sets a new value. Accepts a direct value or an updater function. No event is fired when the value does not change. |
-| `signal.subscribe(callback, options?)` | Registers a listener called on every change. Returns an unsubscribe function. Accepts an optional `{ signal: AbortSignal }` to auto-cancel. |
+| `signal.subscribe(callback, options?)` | Registers a listener called on every change. Returns an unsubscribe function. Options: `{ signal?: AbortSignal, immediate?: boolean }`. |
 
 ### Events
 
@@ -85,7 +86,9 @@ function useSignal<T>(signal: SSignal<T>): T {
 
   useEffect(() => {
     const controller = new AbortController();
-    signal.subscribe((v) => setValue(v), { signal: controller.signal });
+    // immediate: true keeps state in sync if the signal changes between
+    // render and the effect running
+    signal.subscribe((v) => setValue(v), { signal: controller.signal, immediate: true });
     return () => controller.abort();
   }, [signal]);
 
@@ -174,6 +177,21 @@ store.value.set('a', 1);    // logs: store changed, size: 1
 store.value.set('b', 2);    // logs: store changed, size: 2
 store.value.delete('a');    // logs: store changed, size: 1
 store.value.clear();        // logs: store changed, size: 0
+```
+
+### Immediate mode
+
+```ts
+import SSignal from 'ssignal';
+
+const user = new SSignal({ name: 'Ivan' });
+
+// Fires immediately with current value, then on every change
+user.subscribe((v) => console.log('user:', v.name), { immediate: true });
+// logs: user: Ivan  ← fired synchronously on subscribe
+
+user.value = { name: 'Junior' };
+// logs: user: Junior
 ```
 
 ### AbortController

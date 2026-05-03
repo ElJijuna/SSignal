@@ -125,6 +125,56 @@ describe('SSignal', () => {
     expect(callback).not.toHaveBeenCalled();
   });
 
+  it('should fire callback immediately with current value when immediate is true', () => {
+    const signal = new SSignal<number>(42);
+    const callback = jest.fn();
+
+    signal.subscribe(callback, { immediate: true });
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith(42);
+  });
+
+  it('should fire immediate callback and then continue receiving changes', () => {
+    const signal = new SSignal<number>(1);
+    const callback = jest.fn();
+
+    signal.subscribe(callback, { immediate: true });
+    signal.value = 2;
+    signal.value = 3;
+
+    expect(callback).toHaveBeenCalledTimes(3);
+    expect(callback).toHaveBeenNthCalledWith(1, 1);
+    expect(callback).toHaveBeenNthCalledWith(2, 2);
+    expect(callback).toHaveBeenNthCalledWith(3, 3);
+  });
+
+  it('should not fire immediately when immediate is false or omitted', () => {
+    const signal = new SSignal<number>(10);
+    const callback = jest.fn();
+
+    signal.subscribe(callback);
+    signal.subscribe(callback, { immediate: false });
+
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should work with immediate and AbortSignal together', () => {
+    const signal = new SSignal<number>(5);
+    const controller = new AbortController();
+    const callback = jest.fn();
+
+    signal.subscribe(callback, { signal: controller.signal, immediate: true });
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith(5);
+
+    controller.abort();
+    signal.value = 99;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
   it('should not dispatch when a primitive value is set to the same value', () => {
     const signal = new SSignal<number>(5);
     const callback = jest.fn();

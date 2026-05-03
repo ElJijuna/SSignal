@@ -65,14 +65,18 @@ export default class SSignal<T = unknown> extends EventTarget {
    *
    * @param callback - Function called with the new value on each change.
    * @param options.signal - Optional AbortSignal to cancel the subscription.
+   * @param options.immediate - If true, fires the callback synchronously with the current value before returning.
    * @returns A function that removes the subscription when called.
    *
    * @example
    * const controller = new AbortController();
    * signal.subscribe((v) => console.log(v), { signal: controller.signal });
    * controller.abort(); // unsubscribes
+   *
+   * @example
+   * signal.subscribe((v) => render(v), { immediate: true }); // render called immediately with current value
    */
-  subscribe(callback: (value: T) => void, options?: { signal?: AbortSignal }) {
+  subscribe(callback: (value: T) => void, options?: { signal?: AbortSignal; immediate?: boolean }) {
     if (options?.signal?.aborted) return () => {};
 
     const handler = (event: Event) => callback((event as CustomEvent<T>).detail);
@@ -82,6 +86,10 @@ export default class SSignal<T = unknown> extends EventTarget {
 
     if (options?.signal) {
       options.signal.addEventListener('abort', unsubscribe, { once: true });
+    }
+
+    if (options?.immediate) {
+      callback(this.#value);
     }
 
     return unsubscribe;
