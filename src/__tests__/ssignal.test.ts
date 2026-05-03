@@ -12,7 +12,7 @@ describe('SSignal', () => {
     const mockCallback = jest.fn();
     signal.subscribe(mockCallback);
 
-    signal.value = ((prev: number): number => prev * 2) as any satisfies number;
+    signal.value = (prev: number): number => prev * 2;
 
     expect(signal.value).toBe(10);
     expect(mockCallback).toHaveBeenCalledWith(10);
@@ -33,28 +33,10 @@ describe('SSignal', () => {
     const mockCallback = jest.fn();
     signal.subscribe(mockCallback);
 
-    signal.value = (originalMap) as any satisfies Map<string, number>;
+    signal.value = originalMap as unknown as number;
 
-    expect((signal.value as any satisfies Map<string, number>).get('a')).toBe(1);
+    expect((signal.value as unknown as Map<string, number>).get('a')).toBe(1);
     expect(mockCallback).toHaveReturnedTimes(1);
-  });
-
-  it('should dispatch an event when modifying the wrapped Map', () => {
-    const signalMap = new SSignal(new Map([['a', 1]]));
-    const mockCallback = jest.fn();
-    signalMap.subscribe(mockCallback);
-
-    signalMap.value.set('b', 2);
-    expect(mockCallback).toHaveBeenCalledTimes(1);
-    expect(signalMap.value.get('b')).toBe(2);
-
-    signalMap.value.delete('a');
-    expect(mockCallback).toHaveBeenCalledTimes(2);
-    expect(signalMap.value.has('a')).toBe(false);
-
-    signalMap.value.clear();
-    expect(mockCallback).toHaveBeenCalledTimes(3);
-    expect(signalMap.value.size).toBe(0);
   });
 
   it('should dispatch an event when modifying the wrapped Map', () => {
@@ -102,13 +84,13 @@ describe('SSignal', () => {
     expect(mockCallback).toHaveBeenCalledTimes(1);
   });
 
-  it('should call subscriptors when value has updated', () => {
+  it('should stop notifying after unsubscribe', () => {
     const mockCallback = jest.fn();
     const signal = new SSignal<number>(10);
-    const unsubscritbe = signal.subscribe(mockCallback);
+    const unsubscribe = signal.subscribe(mockCallback);
 
     signal.value = 12;
-    unsubscritbe();
+    unsubscribe();
     signal.value = 12;
 
     expect(mockCallback).toHaveBeenCalledTimes(1);
@@ -138,6 +120,69 @@ describe('SSignal', () => {
     const callback = jest.fn();
 
     signal.subscribe(callback, { signal: controller.signal });
+    signal.value = 1;
+
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should not dispatch when a primitive value is set to the same value', () => {
+    const signal = new SSignal<number>(5);
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.value = 5;
+    signal.value = 5;
+
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should notify all subscribers on change', () => {
+    const signal = new SSignal<number>(0);
+    const cb1 = jest.fn();
+    const cb2 = jest.fn();
+    const cb3 = jest.fn();
+    signal.subscribe(cb1);
+    signal.subscribe(cb2);
+    signal.subscribe(cb3);
+
+    signal.value = 1;
+
+    expect(cb1).toHaveBeenCalledWith(1);
+    expect(cb2).toHaveBeenCalledWith(1);
+    expect(cb3).toHaveBeenCalledWith(1);
+  });
+
+  it('should wrap the new Map reactively when replacing a Map via setter', () => {
+    const signal = new SSignal(new Map([['a', 1]]));
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.value = new Map([['b', 2]]);
+    expect(callback).toHaveBeenCalledTimes(1);
+
+    signal.value.set('c', 3);
+    expect(callback).toHaveBeenCalledTimes(2);
+    expect(signal.value.get('c')).toBe(3);
+  });
+
+  it('should not dispatch when an updater function returns the same value', () => {
+    const signal = new SSignal<number>(10);
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.value = (prev) => prev;
+
+    expect(callback).not.toHaveBeenCalled();
+    expect(signal.value).toBe(10);
+  });
+
+  it('should be safe to call unsubscribe multiple times', () => {
+    const signal = new SSignal<number>(0);
+    const callback = jest.fn();
+    const unsubscribe = signal.subscribe(callback);
+
+    unsubscribe();
+    unsubscribe();
     signal.value = 1;
 
     expect(callback).not.toHaveBeenCalled();

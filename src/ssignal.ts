@@ -1,64 +1,105 @@
+/**
+ * A reactive signal that extends EventTarget to provide observable state management.
+ * Supports any value type, including reactive Map instances that emit change events
+ * on mutation.
+ *
+ * @template T - The type of the value held by the signal.
+ *
+ * @example
+ * const count = new SSignal(0);
+ * count.subscribe((value) => console.log(value));
+ * count.value = 1;        // logs: 1
+ * count.value = (n) => n + 1; // logs: 2
+ */
 export default class SSignal<T = unknown> extends EventTarget {
   #value: T;
 
+  /**
+   * Creates a new SSignal instance.
+   * If the initial value is a Map, it is wrapped in a reactive proxy that
+   * dispatches change events on set(), delete() and clear() calls.
+   *
+   * @param value - The initial value of the signal.
+   */
   constructor(value: T) {
     super();
 
     if (value instanceof Map) {
-      this.#value = this.#Map(value) as T;
+      this.#value = this.#wrapMap(value) as T;
     } else {
       this.#value = value;
     }
   }
 
-  get value() {
+  /**
+   * Returns the current value of the signal.
+   */
+  get value(): T {
     return this.#value;
   }
 
-  set value(newValue: T) {
+  /**
+   * Sets a new value for the signal. Accepts either a direct value or an updater
+   * function that receives the previous value and returns the next one.
+   * No event is dispatched when the new value is strictly equal to the current one.
+   *
+   * @param newValue - The next value, or a function `(prev: T) => T`.
+   */
+  set value(newValue: T | ((prev: T) => T)) {
     const nextValue = typeof newValue === 'function' ? (newValue as (prev: T) => T)(this.#value) : newValue;
 
     if (Object.is(nextValue, this.#value)) {
       return;
     }
 
-    this.#value = nextValue instanceof Map ? this.#Map(nextValue) as T : nextValue;
+    this.#value = nextValue instanceof Map ? this.#wrapMap(nextValue) as T : nextValue;
     this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
   }
 
+  /**
+   * Registers a callback that is invoked whenever the signal value changes.
+   * Returns an unsubscribe function that removes the listener when called.
+   *
+   * Optionally accepts an AbortSignal to cancel the subscription automatically.
+   * If the signal is already aborted at call time, the callback is never registered.
+   *
+   * @param callback - Function called with the new value on each change.
+   * @param options.signal - Optional AbortSignal to cancel the subscription.
+   * @returns A function that removes the subscription when called.
+   *
+   * @example
+   * const controller = new AbortController();
+   * signal.subscribe((v) => console.log(v), { signal: controller.signal });
+   * controller.abort(); // unsubscribes
+   */
   subscribe(callback: (value: T) => void, options?: { signal?: AbortSignal }) {
+    if (options?.signal?.aborted) return () => {};
+
     const handler = (event: Event) => callback((event as CustomEvent<T>).detail);
     this.addEventListener('change', handler);
 
     const unsubscribe = () => this.removeEventListener('change', handler);
 
-    // Soporte para AbortSignal
     if (options?.signal) {
-      if (options.signal.aborted) {
-        unsubscribe();
-      } else {
-        const abortHandler = () => {
-          unsubscribe();
-          options.signal?.removeEventListener('abort', abortHandler);
-        };
-        options.signal.addEventListener('abort', abortHandler);
-      }
+      options.signal.addEventListener('abort', unsubscribe, { once: true });
     }
 
     return unsubscribe;
   }
 
-  #Map(original: Map<any, any>): Map<any, any> {
-    const self = this;
-
+  /**
+   * Wraps a Map in a Proxy that dispatches a change event after any mutating
+   * operation (set, delete, clear), keeping read methods working transparently.
+   */
+  #wrapMap(original: Map<any, any>): Map<any, any> {
     return new Proxy(original, {
-      get(target, prop) {
+      get: (target, prop) => {
         const value = Reflect.get(target, prop);
 
         if (['set', 'delete', 'clear'].includes(String(prop))) {
-          return function (...args: any[]) {
+          return (...args: any[]) => {
             const result = (target as any)[prop].apply(target, args);
-            self.dispatchEvent(new CustomEvent<T>('change', { detail: self.#value }));
+            this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
 
             return result;
           };

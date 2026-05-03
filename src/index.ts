@@ -1,1 +1,1 @@
-export * from './ssignal';
+export { default } from './ssignal';

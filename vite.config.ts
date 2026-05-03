@@ -13,10 +13,10 @@ export default defineConfig({
     rollupOptions: {
       external: [],
       output: {
-        exports: 'named',
+        exports: 'default',
       }
     },
-    target: 'es2018',
+    target: 'es2022',
   },
   plugins: [dts()],
 });

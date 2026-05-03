@@ -1,138 +1,214 @@
 # SSignal
 
 [![npm version](https://img.shields.io/npm/v/ssignal.svg)](https://www.npmjs.com/package/ssignal)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![npm downloads](https://img.shields.io/npm/dm/ssignal.svg)](https://www.npmjs.com/package/ssignal)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/ssignal)](https://bundlephobia.com/package/ssignal)
+[![License: MIT](https://img.shields.io/npm/l/ssignal)](LICENSE)
+[![Node.js](https://img.shields.io/node/v/ssignal)](https://nodejs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org)
+[![GitHub stars](https://img.shields.io/github/stars/ElJijuna/ssignal)](https://github.com/ElJijuna/ssignal/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/ElJijuna/ssignal)](https://github.com/ElJijuna/ssignal/issues)
 
-`SSignal` es una clase reactiva que extiende `EventTarget` para la gestión de estados. Proporciona una API simple para suscribirse a cambios de valor en cualquier tipo de dato, incluyendo ahora la capacidad de observar mutaciones en objetos `Map`.
+A lightweight, zero-dependency reactive signal built on top of the native `EventTarget` API. `SSignal` lets you observe value changes on any data type — including deep mutations on `Map` instances — without a framework, build plugin, or compiler transform.
 
-| Propiedad | Tipo | Descripción |
-| :-------- | :--- | :---------- |
-| `constructor(value: T)` | Método | Crea una nueva instancia de `SSignal`. Puede ser inicializada con cualquier valor, incluyendo objetos `Map`, los cuales serán observados de forma reactiva. |
-| `value` | Propiedad (getter/setter) | Propiedad (getter/setter)	Lee o escribe el valor actual del `Signal`. Si el valor es diferente al actual, dispara el evento change. El `setter` también acepta una función de actualización `(prev: T) => T`. |
-| `subscribe(callback: (value: T) => void)` | Método | Registra una función `callback` que será llamada cada vez que el valor del `Signal` cambie. Retorna: Una función de desuscripción que, al ser llamada, elimina el listener. |
-| `dispatchEvent('change', ...)` | Método | Emite el evento `'change'` a todos los suscriptores. Es invocado automáticamente por el `setter` y por las mutaciones en un `Map` observado. |
-| `addEventListener('change', ...)` | Método | Extiende el método nativo de `EventTarget` para agregar un listener al evento `'change'`. |
-| `removeEventListener('change', ...)` | Método | Extiende el método nativo de `EventTarget` para eliminar un listener. |
+## Features
 
-La clase SSignal emite los siguientes eventos:
+- **Simple API** — `value`, `subscribe`, and an unsubscribe function. That's it.
+- **Framework-agnostic** — works in the browser, Node.js ≥ 18.7, and any runtime that supports `EventTarget`.
+- **Reactive `Map` support** — mutations via `set()`, `delete()`, and `clear()` automatically dispatch change events.
+- **Updater functions** — `signal.value = (prev) => prev + 1` for safe derived updates.
+- **AbortSignal integration** — cancel subscriptions with a standard `AbortController`.
+- **TypeScript-first** — fully typed, zero `any` in the public API.
+- **Tree-shakeable** — `sideEffects: false`, ships ESM + CJS + UMD.
 
-| Evento | Tipo | Descripción |
-| :----- | :--- | :---------- |
-| `change` | `CustomEvent<T>` | Disparado cuando el valor de `Signal` cambia. El detalle del evento `(event.detail)` contiene el nuevo valor. |
-
-## Instalación
-
-### Web (from CDN)
-
-```html
-<!DOCTYPE html>
-  <head>
-    <head>
-      <script src="https://unpkg.com/ssignal@latest/lib/ssignal.umd.js" />
-   ...
-```
-
-### Backend and Frontend apps
+## Installation
 
 ```sh
 npm install ssignal
 ```
 
+### CDN (browser)
+
+```html
+<script src="https://unpkg.com/ssignal@latest/lib/ssignal.umd.js"></script>
+```
+
+## API
+
+| Member | Description |
+| :----- | :---------- |
+| `new SSignal(value: T)` | Creates a signal. `Map` values are automatically wrapped in a reactive proxy. |
+| `signal.value` | Gets the current value. |
+| `signal.value = newValue \| (prev: T) => T` | Sets a new value. Accepts a direct value or an updater function. No event is fired when the value does not change. |
+| `signal.subscribe(callback, options?)` | Registers a listener called on every change. Returns an unsubscribe function. Accepts an optional `{ signal: AbortSignal }` to auto-cancel. |
+
+### Events
+
+| Event | Type | Description |
+| :---- | :--- | :---------- |
+| `change` | `CustomEvent<T>` | Fired when the value changes. The new value is available as `event.detail`. |
+
+## Usage examples
+
+### Plain function / vanilla JS
+
+```ts
+import SSignal from 'ssignal';
+
+const counter = new SSignal(0);
+
+const unsubscribe = counter.subscribe((value) => {
+  console.log('counter changed:', value);
+});
+
+counter.value = 1;              // logs: counter changed: 1
+counter.value = (n) => n + 1;  // logs: counter changed: 2
+counter.value = 2;              // no log — same value, no event fired
+
+unsubscribe();
+counter.value = 99;             // no log — already unsubscribed
+```
+
+### React component
+
+```tsx
+import { useEffect, useState } from 'react';
+import SSignal from 'ssignal';
+
+// Create signals outside the component so they are shared across the app
+export const themeSignal = new SSignal<'light' | 'dark'>('light');
+export const cartSignal = new SSignal(new Map<string, number>());
+
+// Generic hook to bind any SSignal to local state
+function useSignal<T>(signal: SSignal<T>): T {
+  const [value, setValue] = useState<T>(signal.value);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    signal.subscribe((v) => setValue(v), { signal: controller.signal });
+    return () => controller.abort();
+  }, [signal]);
+
+  return value;
+}
+
+export function ThemeToggle() {
+  const theme = useSignal(themeSignal);
+
+  return (
+    <button onClick={() => themeSignal.value = theme === 'light' ? 'dark' : 'light'}>
+      Current theme: {theme}
+    </button>
+  );
+}
+
+export function Cart() {
+  const cart = useSignal(cartSignal);
+
+  const addItem = (id: string) => {
+    cartSignal.value.set(id, (cart.get(id) ?? 0) + 1);
+  };
+
+  return (
+    <div>
+      <p>Items in cart: {cart.size}</p>
+      <button onClick={() => addItem('product-1')}>Add product</button>
+    </div>
+  );
+}
+```
+
+### Express backend
+
+```ts
+import express from 'express';
+import SSignal from 'ssignal';
+
+const app = express();
+
+// Shared application state
+const connectedClients = new SSignal(0);
+const featureFlags = new SSignal(new Map<string, boolean>([
+  ['new-checkout', false],
+  ['dark-mode', true],
+]));
+
+// Log every time the client count changes
+connectedClients.subscribe((count) => {
+  console.log(`[${new Date().toISOString()}] Connected clients: ${count}`);
+});
+
+app.use((req, res, next) => {
+  connectedClients.value = (n) => n + 1;
+  res.on('finish', () => {
+    connectedClients.value = (n) => n - 1;
+  });
+  next();
+});
+
+app.get('/flags', (req, res) => {
+  res.json(Object.fromEntries(featureFlags.value));
+});
+
+app.patch('/flags/:name', express.json(), (req, res) => {
+  const { name } = req.params;
+  featureFlags.value.set(name, req.body.enabled);
+  res.sendStatus(204);
+});
+
+app.listen(3000, () => console.log('Server running on port 3000'));
+```
+
+### Reactive Map
+
+```ts
+import SSignal from 'ssignal';
+
+const store = new SSignal(new Map<string, number>());
+
+store.subscribe((map) => {
+  console.log('store changed, size:', map.size);
+});
+
+store.value.set('a', 1);    // logs: store changed, size: 1
+store.value.set('b', 2);    // logs: store changed, size: 2
+store.value.delete('a');    // logs: store changed, size: 1
+store.value.clear();        // logs: store changed, size: 0
+```
+
+### AbortController
+
 ```ts
 import SSignal from 'ssignal';
 
 const signal = new SSignal(0);
-```
+const controller = new AbortController();
 
-```js
-const SSignal = require('ssignal');
+signal.subscribe((v) => console.log(v), { signal: controller.signal });
 
-const signal = new SSignal(0);
-```
-
-## Características destacadas
-
-*   **API simple**: Con métodos intuitivos como `value`, `subscribe` y `unsubscribe`.
-*   **Reactividad**: Emite un evento `'change'` cuando el valor cambia, permitiendo una gestión de estado eficiente.
-*   **Soporte nativo para `Map`**: Observa de forma automática las mutaciones en objetos `Map`, disparando eventos sin necesidad de intervención manual.
-*   **Seguridad de tipos**: Construido en TypeScript para garantizar la seguridad en todo el proceso.
-
-## Nueva funcionalidad: soporte reactivo para `Map`
-
-Ahora `SSignal` puede manejar de forma reactiva instancias de `Map`. Cuando inicializas `SSignal` con un objeto `Map`, cualquier modificación realizada a través de los métodos nativos `set()`, `delete()` o `clear()` disparará un evento de `change`, notificando a todos los suscriptores.
-
-### Cómo funciona
-
-Al inicializar `SSignal` con una instancia de `Map`, la clase envuelve el objeto en un `Proxy`. Este `Proxy` intercepta las llamadas a los métodos que modifican el `Map` y emite un evento de `change` de forma automática. También se asegura de que los métodos de lectura (`get()`, `has()`, `entries()`, etc.) funcionen correctamente.
-
-### Ejemplo de uso con `Map`
-
-```typescript
-// SSignal.ts
-import SSignal from './SSignal';
-
-// 1. Crear una instancia de SSignal con un Map
-const signalMap = new SSignal(new Map<string, number>());
-
-// 2. Suscribirse a los cambios
-const unsubscribe = signalMap.subscribe((value) => {
-  console.log('El Map ha cambiado:', value);
-  console.log('El tamaño del Map es:', value.size); // Acceder a propiedades como 'size' funciona
-});
-
-// 3. Modificar el Map y observar los eventos
-signalMap.value.set('a', 1);
-// Salida:
-// El Map ha cambiado: Map(1) { 'a' => 1 }
-// El tamaño del Map es: 1
-
-signalMap.value.set('b', 2);
-// Salida:
-// El Map ha cambiado: Map(2) { 'a' => 1, 'b' => 2 }
-// El tamaño del Map es: 2
-
-signalMap.value.delete('a');
-// Salida:
-// El Map ha cambiado: Map(1) { 'b' => 2 }
-// El tamaño del Map es: 1
-
-// 4. Desuscribirse para dejar de recibir notificaciones
-unsubscribe();
-```
-
-### Ejemplo de uso con valores primitivos
-```typescript
-import SSignal from './SSignal';
-
-const signalNumber = new SSignal<number>(0);
-
-signalNumber.subscribe((value) => {
-  console.log('El número ha cambiado a:', value);
-});
-
-signalNumber.value = 10;
-// Salida: El número ha cambiado a: 10
-
-// También soporta la actualización con una función
-signalNumber.value = (prev) => prev + 5;
-// Salida: El número ha cambiado a: 15
-
+signal.value = 1;    // logs: 1
+controller.abort();
+signal.value = 2;    // no log
 ```
 
 ## Scripts
 
-- `npm run build`: Compila TypeScript a la carpeta `lib`.
-- `npm test`: Ejecuta los tests.
-- `npm run test:coverage`: Ejecuta los tests con cobertura.
+| Command | Description |
+| :------ | :---------- |
+| `npm run build` | Compile and bundle to `lib/`. |
+| `npm test` | Run the test suite. |
+| `npm run test:coverage` | Run tests with coverage report. |
 
-### Estado de las pruebas de rendimiento
+## Performance
 
-![Reporte visual de pruebas de rendimiento](images/test-report.png)
+`SSignal` handles **200,000 value updates** notifying **10 simultaneous subscribers** in under 500 ms.
 
-## Licencia
+![Performance test report](images/test-report.png)
 
-MIT
+## License
+
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-Repositorio: https://github.com/ElJijuna/ssignal
+Repository: [github.com/ElJijuna/ssignal](https://github.com/ElJijuna/ssignal)
