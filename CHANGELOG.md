@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/ElJijuna/ssignal/compare/v1.4.0...v1.5.0) (2026-05-03)
+
+
+### Features
+
+* add one-time signal subscriptions ([857ab5e](https://github.com/ElJijuna/ssignal/commit/857ab5e659a88e22a82bb9008b40858ee70fa262)), closes [#24](https://github.com/ElJijuna/ssignal/issues/24)
+
 # [1.4.0](https://github.com/ElJijuna/ssignal/compare/v1.3.0...v1.4.0) (2026-05-03)
 
 
