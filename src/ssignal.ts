@@ -96,6 +96,50 @@ export default class SSignal<T = unknown> extends EventTarget {
   }
 
   /**
+   * Registers a callback that is invoked only on the next signal value change.
+   * Returns an unsubscribe function that can cancel the pending callback before
+   * it fires.
+   *
+   * Optionally accepts an AbortSignal to cancel the one-time subscription
+   * automatically. If the signal is already aborted at call time, the callback is
+   * never registered.
+   *
+   * @param callback - Function called with the new value on the next change.
+   * @param options.signal - Optional AbortSignal to cancel the subscription.
+   * @returns A function that removes the pending one-time subscription.
+   *
+   * @example
+   * const unsubscribe = signal.once((v) => console.log('first change:', v));
+   * unsubscribe(); // cancels if the signal has not changed yet
+   */
+  once(callback: (value: T) => void, options?: { signal?: AbortSignal }) {
+    if (options?.signal?.aborted) return () => {};
+
+    let active = true;
+
+    const unsubscribe = () => {
+      if (!active) return;
+
+      active = false;
+      this.removeEventListener('change', handler);
+      options?.signal?.removeEventListener('abort', unsubscribe);
+    };
+
+    const handler = (event: Event) => {
+      unsubscribe();
+      callback((event as CustomEvent<T>).detail);
+    };
+
+    this.addEventListener('change', handler);
+
+    if (options?.signal) {
+      options.signal.addEventListener('abort', unsubscribe, { once: true });
+    }
+
+    return unsubscribe;
+  }
+
+  /**
    * Wraps a Map in a Proxy that dispatches a change event after any mutating
    * operation (set, delete, clear), keeping read methods working transparently.
    */

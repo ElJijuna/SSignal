@@ -237,4 +237,79 @@ describe('SSignal', () => {
 
     expect(callback).not.toHaveBeenCalled();
   });
+
+  it('should fire a once callback exactly once on the next value change', () => {
+    const signal = new SSignal<number>(0);
+    const callback = jest.fn();
+
+    signal.once(callback);
+    signal.value = 1;
+    signal.value = 2;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith(1);
+  });
+
+  it('should allow a once callback to be canceled before it fires', () => {
+    const signal = new SSignal<number>(0);
+    const callback = jest.fn();
+    const unsubscribe = signal.once(callback);
+
+    unsubscribe();
+    signal.value = 1;
+
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should cancel a once callback when the abortcontroller is aborted', () => {
+    const signal = new SSignal<number>(0);
+    const controller = new AbortController();
+    const callback = jest.fn();
+
+    signal.once(callback, { signal: controller.signal });
+    controller.abort();
+    signal.value = 1;
+
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should not register a once callback if the signal is already aborted', () => {
+    const signal = new SSignal<number>(0);
+    const controller = new AbortController();
+    const callback = jest.fn();
+    controller.abort();
+
+    signal.once(callback, { signal: controller.signal });
+    signal.value = 1;
+
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should be safe to call a once unsubscribe multiple times', () => {
+    const signal = new SSignal<number>(0);
+    const callback = jest.fn();
+    const unsubscribe = signal.once(callback);
+
+    unsubscribe();
+    unsubscribe();
+    signal.value = 1;
+
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should unsubscribe a once callback before invoking it', () => {
+    const signal = new SSignal<number>(0);
+    const callback = jest.fn((value: number) => {
+      if (value === 1) {
+        signal.value = 2;
+      }
+    });
+
+    signal.once(callback);
+    signal.value = 1;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith(1);
+    expect(signal.value).toBe(2);
+  });
 });
