@@ -5,7 +5,7 @@ export default defineConfig({
   build: {
     outDir: 'lib',
     lib: {
-      entry: 'src/ssignal.ts',
+      entry: 'src/index.ts',
       name: 'SSignal',
       formats: ['es', 'cjs', 'umd'],
       fileName: (format) => `ssignal.${format}.js`,
@@ -13,10 +13,10 @@ export default defineConfig({
     rollupOptions: {
       external: [],
       output: {
-        exports: 'default',
+        exports: 'named',
       }
     },
     target: 'es2022',
   },
-  plugins: [dts()],
+  plugins: [dts({ rollupTypes: true })],
 });

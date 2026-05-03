@@ -18,6 +18,7 @@ A lightweight, zero-dependency reactive signal built on top of the native `Event
 - **Reactive `Map` support** — mutations via `set()`, `delete()`, and `clear()` automatically dispatch change events.
 - **Updater functions** — `signal.value = (prev) => prev + 1` for safe derived updates.
 - **Immediate mode** — `{ immediate: true }` fires the callback with the current value on subscribe.
+- **Computed signals** — derive read-only signals from one or more sources with `computed()`.
 - **AbortSignal integration** — cancel subscriptions with a standard `AbortController`.
 - **TypeScript-first** — fully typed, zero `any` in the public API.
 - **Tree-shakeable** — `sideEffects: false`, ships ESM + CJS + UMD.
@@ -42,6 +43,9 @@ npm install ssignal
 | `signal.value` | Gets the current value. |
 | `signal.value = newValue \| (prev: T) => T` | Sets a new value. Accepts a direct value or an updater function. No event is fired when the value does not change. |
 | `signal.subscribe(callback, options?)` | Registers a listener called on every change. Returns an unsubscribe function. Options: `{ signal?: AbortSignal, immediate?: boolean }`. |
+| `computed(source, fn)` | Creates a read-only `ComputedSignal` derived from one source. |
+| `computed([...sources], fn)` | Creates a read-only `ComputedSignal` derived from multiple sources. |
+| `computed.dispose()` | Removes all source subscriptions. Call when the signal is no longer needed. |
 
 ### Events
 
@@ -192,6 +196,35 @@ user.subscribe((v) => console.log('user:', v.name), { immediate: true });
 
 user.value = { name: 'Junior' };
 // logs: user: Junior
+```
+
+### Computed signals
+
+```ts
+import SSignal, { computed } from 'ssignal';
+
+// Single source
+const price = new SSignal(100);
+const withTax = computed(price, (p) => p * 1.21);
+
+withTax.subscribe((v) => console.log('price with tax:', v));
+// logs: price with tax: 121
+
+price.value = 200;
+// logs: price with tax: 242
+
+// Multiple sources
+const qty = new SSignal(3);
+const total = computed([price, qty], ([p, q]) => p * q);
+
+total.subscribe((v) => console.log('total:', v)); // logs: total: 600
+qty.value = 5; // logs: total: 1000
+
+// computed signals are read-only
+total.value = 0; // throws TypeError
+
+// clean up when no longer needed
+total.dispose();
 ```
 
 ### AbortController
