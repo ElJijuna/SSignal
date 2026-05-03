@@ -1,6 +1,6 @@
 {
   "name": "ssignal",
-  "version": "1.3.0",
+  "version": "1.0.0",
   "description": "Lightweight zero-dependency reactive signal built on the native EventTarget API. Supports any value type, reactive Map mutations, updater functions, and AbortSignal integration.",
   "main": "./lib/ssignal.cjs.js",
   "module": "./lib/ssignal.es.js",
