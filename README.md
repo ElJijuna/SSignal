@@ -18,6 +18,7 @@ A lightweight, zero-dependency reactive signal built on top of the native `Event
 - **Reactive `Map` support** — mutations via `set()`, `delete()`, and `clear()` automatically dispatch change events.
 - **Updater functions** — `signal.value = (prev) => prev + 1` for safe derived updates.
 - **Immediate mode** — `{ immediate: true }` fires the callback with the current value on subscribe.
+- **One-time subscriptions** — `once()` listens for the next change only, then unsubscribes itself.
 - **Computed signals** — derive read-only signals from one or more sources with `computed()`.
 - **AbortSignal integration** — cancel subscriptions with a standard `AbortController`.
 - **TypeScript-first** — fully typed, zero `any` in the public API.
@@ -43,6 +44,7 @@ npm install ssignal
 | `signal.value` | Gets the current value. |
 | `signal.value = newValue \| (prev: T) => T` | Sets a new value. Accepts a direct value or an updater function. No event is fired when the value does not change. |
 | `signal.subscribe(callback, options?)` | Registers a listener called on every change. Returns an unsubscribe function. Options: `{ signal?: AbortSignal, immediate?: boolean }`. |
+| `signal.once(callback, options?)` | Registers a listener called only on the next change, then unsubscribes automatically. Returns an unsubscribe function. Options: `{ signal?: AbortSignal }`. |
 | `computed(source, fn)` | Creates a read-only `ComputedSignal` derived from one source. |
 | `computed([...sources], fn)` | Creates a read-only `ComputedSignal` derived from multiple sources. |
 | `computed.dispose()` | Removes all source subscriptions. Call when the signal is no longer needed. |
@@ -196,6 +198,46 @@ user.subscribe((v) => console.log('user:', v.name), { immediate: true });
 
 user.value = { name: 'Junior' };
 // logs: user: Junior
+```
+
+### One-time subscription
+
+```ts
+import SSignal from 'ssignal';
+
+type CheckoutState =
+  | { status: 'idle' }
+  | { status: 'processing'; orderId: string }
+  | { status: 'paid'; orderId: string; receiptUrl: string }
+  | { status: 'failed'; orderId: string; reason: string };
+
+const checkout = new SSignal<CheckoutState>({ status: 'idle' });
+
+function openCheckout(orderId: string) {
+  const controller = new AbortController();
+
+  checkout.once((state) => {
+    if (state.status === 'paid') {
+      window.location.assign(state.receiptUrl);
+    }
+  }, { signal: controller.signal });
+
+  checkout.value = { status: 'processing', orderId };
+
+  return {
+    close: () => controller.abort(),
+  };
+}
+
+const modal = openCheckout('order_123');
+
+checkout.value = {
+  status: 'paid',
+  orderId: 'order_123',
+  receiptUrl: '/receipts/order_123',
+}; // redirects once
+
+modal.close(); // no effect after the one-time listener has already fired
 ```
 
 ### Computed signals
