@@ -215,6 +215,68 @@ describe('SSignal', () => {
     expect(signal.value.get('c')).toBe(3);
   });
 
+  it('should initialize correctly with a Set and not fire on subscription', () => {
+    const signal = new SSignal(new Set([1, 2, 3]));
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    expect(callback).not.toHaveBeenCalled();
+    expect(signal.value.has(1)).toBe(true);
+  });
+
+  it('should update the value correctly when a Set is provided via setter', () => {
+    const signal = new SSignal<unknown>(0);
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.value = new Set(['a', 'b']) as unknown as number;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect((signal.value as unknown as Set<string>).has('a')).toBe(true);
+  });
+
+  it('should dispatch an event when modifying the wrapped Set', () => {
+    const signal = new SSignal(new Set([1, 2]));
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.value.add(3);
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(signal.value.has(3)).toBe(true);
+
+    signal.value.delete(1);
+    expect(callback).toHaveBeenCalledTimes(2);
+    expect(signal.value.has(1)).toBe(false);
+
+    signal.value.clear();
+    expect(callback).toHaveBeenCalledTimes(3);
+    expect(signal.value.size).toBe(0);
+  });
+
+  it('should correctly call native Set methods like forEach() and values()', () => {
+    const signal = new SSignal(new Set(['x', 'y', 'z']));
+    const collected: string[] = [];
+
+    signal.value.forEach((v) => collected.push(v));
+    expect(collected).toEqual(['x', 'y', 'z']);
+
+    const values = [...signal.value.values()];
+    expect(values).toEqual(['x', 'y', 'z']);
+  });
+
+  it('should wrap the new Set reactively when replacing a Set via setter', () => {
+    const signal = new SSignal(new Set([1]));
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.value = new Set([2, 3]);
+    expect(callback).toHaveBeenCalledTimes(1);
+
+    signal.value.add(4);
+    expect(callback).toHaveBeenCalledTimes(2);
+    expect(signal.value.has(4)).toBe(true);
+  });
+
   it('should not dispatch when an updater function returns the same value', () => {
     const signal = new SSignal<number>(10);
     const callback = jest.fn();

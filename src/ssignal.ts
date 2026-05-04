@@ -1,7 +1,7 @@
 /**
  * A reactive signal that extends EventTarget to provide observable state management.
- * Supports any value type, including reactive Map instances that emit change events
- * on mutation.
+ * Supports any value type, including reactive Map and Set instances that emit change
+ * events on mutation.
  *
  * @template T - The type of the value held by the signal.
  *
@@ -16,16 +16,16 @@ export default class SSignal<T = unknown> extends EventTarget {
 
   /**
    * Creates a new SSignal instance.
-   * If the initial value is a Map, it is wrapped in a reactive proxy that
-   * dispatches change events on set(), delete() and clear() calls.
+   * If the initial value is a Map or Set, it is wrapped in a reactive proxy that
+   * dispatches change events on mutating calls.
    *
    * @param value - The initial value of the signal.
    */
   constructor(value: T) {
     super();
 
-    if (value instanceof Map) {
-      this.#value = this.#wrapMap(value) as T;
+    if (value instanceof Map || value instanceof Set) {
+      this.#value = this.#wrapCollection(value) as T;
     } else {
       this.#value = value;
     }
@@ -52,7 +52,9 @@ export default class SSignal<T = unknown> extends EventTarget {
       return;
     }
 
-    this.#value = nextValue instanceof Map ? this.#wrapMap(nextValue) as T : nextValue;
+    this.#value = nextValue instanceof Map || nextValue instanceof Set
+      ? this.#wrapCollection(nextValue) as T
+      : nextValue;
     this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
   }
 
@@ -140,17 +142,21 @@ export default class SSignal<T = unknown> extends EventTarget {
   }
 
   /**
-   * Wraps a Map in a Proxy that dispatches a change event after any mutating
-   * operation (set, delete, clear), keeping read methods working transparently.
+   * Wraps a Map or Set in a Proxy that dispatches a change event after any mutating
+   * operation, keeping read methods working transparently.
    */
-  #wrapMap(original: Map<any, any>): Map<any, any> {
+  #wrapCollection<C extends Map<unknown, unknown> | Set<unknown>>(original: C): C {
+    const mutatingMethods = original instanceof Map
+      ? ['set', 'delete', 'clear']
+      : ['add', 'delete', 'clear'];
+
     return new Proxy(original, {
       get: (target, prop) => {
         const value = Reflect.get(target, prop);
 
-        if (['set', 'delete', 'clear'].includes(String(prop))) {
-          return (...args: any[]) => {
-            const result = (target as any)[prop].apply(target, args);
+        if (mutatingMethods.includes(String(prop))) {
+          return (...args: unknown[]) => {
+            const result = (value as (...args: unknown[]) => unknown).apply(target, args);
             this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
 
             return result;
