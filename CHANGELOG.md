@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/ElJijuna/ssignal/compare/v1.5.0...v1.6.0) (2026-05-04)
+
+
+### Features
+
+* add reactive Set support (closes [#27](https://github.com/ElJijuna/ssignal/issues/27)) ([9d8183a](https://github.com/ElJijuna/ssignal/commit/9d8183a3a21ed7e7003b0f7afca5724c25602ed0))
+
 # [1.4.0](https://github.com/ElJijuna/ssignal/compare/v1.3.0...v1.4.0) (2026-05-03)
 
 
