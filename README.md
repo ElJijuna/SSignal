@@ -289,8 +289,9 @@ signal.value = 2;    // no log
 | Command | Description |
 | :------ | :---------- |
 | `npm run build` | Compile and bundle to `lib/`. |
-| `npm test` | Run the test suite. |
-| `npm run test:coverage` | Run tests with coverage report. |
+| `npm test` | Run unit tests. |
+| `npm run test:coverage` | Run unit tests with coverage report. |
+| `npm run test:performance` | Run performance tests. |
 
 ## Performance
 
