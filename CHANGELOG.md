@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/ElJijuna/ssignal/compare/v1.6.0...v1.7.0) (2026-06-11)
+
+
+### Features
+
+* enhance project setup with new scripts and dependencies ([a5e72b5](https://github.com/ElJijuna/ssignal/commit/a5e72b5be967174ce9be99dde6fb51b23002099a))
+
 # [1.5.0](https://github.com/ElJijuna/ssignal/compare/v1.4.0...v1.5.0) (2026-05-03)
 
 
