@@ -1,5 +1,5 @@
+import { ComputedSignal, computed } from '../computed';
 import SSignal from '../ssignal';
-import { computed, ComputedSignal } from '../computed';
 
 describe('computed()', () => {
   it('should derive value from a single source', () => {
@@ -50,7 +50,7 @@ describe('computed()', () => {
     const doubled = computed(count, (n) => n * 2);
 
     expect(() => {
-      (doubled as any).value = 99;
+      Object.getOwnPropertyDescriptor(ComputedSignal.prototype, 'value')?.set?.call(doubled, 99);
     }).toThrow(TypeError);
   });
 

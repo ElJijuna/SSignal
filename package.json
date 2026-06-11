@@ -29,9 +29,15 @@
   "sideEffects": false,
   "scripts": {
     "build": "vite build",
+    "check": "npm run lint && npm run format:check && npm run typecheck && npm test",
+    "format": "biome check --write .",
+    "format:check": "biome check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "jest --config jest.config.cjs",
     "test:coverage": "jest --config jest.config.cjs --coverage",
-    "test:performance": "jest --config jest.performance.config.cjs"
+    "test:performance": "jest --config jest.performance.config.cjs",
+    "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
@@ -52,15 +58,18 @@
   },
   "homepage": "https://github.com/ElJijuna/ssignal",
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@jest-performance-reporter/core": "^2.1.3",
     "@semantic-release/changelog": "^6.0.3",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.5.2",
+    "eslint": "^9.39.4",
     "jest": "^30.2.0",
     "jest-html-reporter": "^4.3.0",
     "jest-slow-test-reporter": "^1.0.0",
     "jest-test-performance": "^1.0.1",
     "semantic-release": "^25.0.3",
+    "super-configs": "^1.13.0",
     "ts-jest": "^29.4.4",
     "typescript": "^5.9.2",
     "vite": "^8.0.14",

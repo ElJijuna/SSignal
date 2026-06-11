@@ -58,16 +58,22 @@ describe('SSignal', () => {
   });
 
   it('should correctly call native Map methods like entries()', () => {
-    const originalMap = new Map([['key1', 'value1'], ['key2', 'value2']]);
+    const originalMap = new Map([
+      ['key1', 'value1'],
+      ['key2', 'value2'],
+    ]);
     const signalMap = new SSignal(originalMap);
 
     const entries = [...signalMap.value.entries()];
-    expect(entries).toEqual([['key1', 'value1'], ['key2', 'value2']]);
+    expect(entries).toEqual([
+      ['key1', 'value1'],
+      ['key2', 'value2'],
+    ]);
   });
 
   it('should call subscriptors when value has updated', () => {
     class Person {
-      constructor(public name: string) { }
+      constructor(public name: string) {}
     }
     const person1 = new Person('Ivan');
     const person2 = new Person('Junior');
@@ -257,7 +263,9 @@ describe('SSignal', () => {
     const signal = new SSignal(new Set(['x', 'y', 'z']));
     const collected: string[] = [];
 
-    signal.value.forEach((v) => collected.push(v));
+    signal.value.forEach((v) => {
+      collected.push(v);
+    });
     expect(collected).toEqual(['x', 'y', 'z']);
 
     const values = [...signal.value.values()];

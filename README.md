@@ -1,11 +1,19 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ElJijuna/ssignal/main/public/assets/logo.svg" alt="SSignal logo" width="160" />
+</p>
+
 # SSignal
 
 [![npm version](https://img.shields.io/npm/v/ssignal.svg)](https://www.npmjs.com/package/ssignal)
 [![npm downloads](https://img.shields.io/npm/dm/ssignal.svg)](https://www.npmjs.com/package/ssignal)
+[![CI](https://github.com/ElJijuna/ssignal/actions/workflows/ci.yml/badge.svg)](https://github.com/ElJijuna/ssignal/actions/workflows/ci.yml)
+[![Release](https://github.com/ElJijuna/ssignal/actions/workflows/release.yml/badge.svg)](https://github.com/ElJijuna/ssignal/actions/workflows/release.yml)
+[![Web Audit Report](https://github.com/ElJijuna/ssignal/actions/workflows/web-audit-report.yml/badge.svg)](https://github.com/ElJijuna/ssignal/actions/workflows/web-audit-report.yml)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/ssignal)](https://bundlephobia.com/package/ssignal)
 [![License: MIT](https://img.shields.io/npm/l/ssignal)](LICENSE)
 [![Node.js](https://img.shields.io/node/v/ssignal)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org)
+[![semantic-release](https://img.shields.io/badge/release-semantic--release-e10079?logo=semantic-release&logoColor=white)](https://semantic-release.gitbook.io/semantic-release/)
 [![GitHub stars](https://img.shields.io/github/stars/ElJijuna/ssignal)](https://github.com/ElJijuna/ssignal/stargazers)
 [![GitHub issues](https://img.shields.io/github/issues/ElJijuna/ssignal)](https://github.com/ElJijuna/ssignal/issues)
 

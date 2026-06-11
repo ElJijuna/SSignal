@@ -46,15 +46,17 @@ export default class SSignal<T = unknown> extends EventTarget {
    * @param newValue - The next value, or a function `(prev: T) => T`.
    */
   set value(newValue: T | ((prev: T) => T)) {
-    const nextValue = typeof newValue === 'function' ? (newValue as (prev: T) => T)(this.#value) : newValue;
+    const nextValue =
+      typeof newValue === 'function' ? (newValue as (prev: T) => T)(this.#value) : newValue;
 
     if (Object.is(nextValue, this.#value)) {
       return;
     }
 
-    this.#value = nextValue instanceof Map || nextValue instanceof Set
-      ? this.#wrapCollection(nextValue) as T
-      : nextValue;
+    this.#value =
+      nextValue instanceof Map || nextValue instanceof Set
+        ? (this.#wrapCollection(nextValue) as T)
+        : nextValue;
     this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
   }
 
@@ -79,7 +81,9 @@ export default class SSignal<T = unknown> extends EventTarget {
    * signal.subscribe((v) => render(v), { immediate: true }); // render called immediately with current value
    */
   subscribe(callback: (value: T) => void, options?: { signal?: AbortSignal; immediate?: boolean }) {
-    if (options?.signal?.aborted) return () => {};
+    if (options?.signal?.aborted) {
+      return () => {};
+    }
 
     const handler = (event: Event) => callback((event as CustomEvent<T>).detail);
     this.addEventListener('change', handler);
@@ -115,12 +119,16 @@ export default class SSignal<T = unknown> extends EventTarget {
    * unsubscribe(); // cancels if the signal has not changed yet
    */
   once(callback: (value: T) => void, options?: { signal?: AbortSignal }) {
-    if (options?.signal?.aborted) return () => {};
+    if (options?.signal?.aborted) {
+      return () => {};
+    }
 
     let active = true;
 
     const unsubscribe = () => {
-      if (!active) return;
+      if (!active) {
+        return;
+      }
 
       active = false;
       this.removeEventListener('change', handler);
@@ -146,9 +154,8 @@ export default class SSignal<T = unknown> extends EventTarget {
    * operation, keeping read methods working transparently.
    */
   #wrapCollection<C extends Map<unknown, unknown> | Set<unknown>>(original: C): C {
-    const mutatingMethods = original instanceof Map
-      ? ['set', 'delete', 'clear']
-      : ['add', 'delete', 'clear'];
+    const mutatingMethods =
+      original instanceof Map ? ['set', 'delete', 'clear'] : ['add', 'delete', 'clear'];
 
     return new Proxy(original, {
       get: (target, prop) => {

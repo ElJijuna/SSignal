@@ -1,10 +1,16 @@
 import SSignal from './ssignal';
 
-type ExtractValues<T extends readonly SSignal<any>[]> = {
+type ExtractValues<T extends readonly SSignal<unknown>[]> = {
   [K in keyof T]: T[K] extends SSignal<infer V> ? V : never;
 };
 
-const parentSetter = Object.getOwnPropertyDescriptor(SSignal.prototype, 'value')!.set!;
+const parentValueDescriptor = Object.getOwnPropertyDescriptor(SSignal.prototype, 'value');
+
+if (!parentValueDescriptor?.set) {
+  throw new TypeError('SSignal value setter is not available.');
+}
+
+const parentSetter = parentValueDescriptor.set as (this: SSignal<unknown>, value: unknown) => void;
 
 const registry = new FinalizationRegistry<() => void>((dispose) => dispose());
 
@@ -18,7 +24,7 @@ export class ComputedSignal<T> extends SSignal<T> {
   #dispose: () => void;
 
   /** @internal */
-  constructor(sources: SSignal<any>[], fn: (...values: any[]) => T) {
+  constructor(sources: readonly SSignal<unknown>[], fn: (...values: unknown[]) => T) {
     const getValues = () => sources.map((s) => s.value);
     super(fn(...getValues()));
 
@@ -27,11 +33,17 @@ export class ComputedSignal<T> extends SSignal<T> {
     const unsubscribers = sources.map((s) =>
       s.subscribe(() => {
         const self = selfRef.deref();
-        if (self) parentSetter.call(self, fn(...getValues()));
-      })
+        if (self) {
+          parentSetter.call(self, fn(...getValues()));
+        }
+      }),
     );
 
-    this.#dispose = () => unsubscribers.forEach((u) => u());
+    this.#dispose = () => {
+      for (const unsubscribe of unsubscribers) {
+        unsubscribe();
+      }
+    };
     registry.register(this, this.#dispose, this);
   }
 
@@ -85,17 +97,20 @@ export function computed<T, R>(source: SSignal<T>, fn: (value: T) => R): Compute
  * total.subscribe((v) => console.log(v)); // logs: 300
  * price.value = 200; // logs: 600
  */
-export function computed<Sources extends readonly SSignal<any>[], R>(
+export function computed<Sources extends readonly SSignal<unknown>[], R>(
   sources: [...Sources],
-  fn: (values: ExtractValues<Sources>) => R
+  fn: (values: ExtractValues<Sources>) => R,
 ): ComputedSignal<R>;
 
 export function computed<R>(
-  sourceOrSources: SSignal<any> | SSignal<any>[],
-  fn: (valueOrValues: any) => R
+  sourceOrSources: SSignal<unknown> | readonly SSignal<unknown>[],
+  fn: (...args: never[]) => R,
 ): ComputedSignal<R> {
-  if (Array.isArray(sourceOrSources)) {
-    return new ComputedSignal<R>(sourceOrSources, (...values: any[]) => fn(values));
+  const computeValue = fn as (valueOrValues: unknown) => R;
+
+  if (sourceOrSources instanceof SSignal) {
+    return new ComputedSignal<R>([sourceOrSources], (v: unknown) => computeValue(v));
   }
-  return new ComputedSignal<R>([sourceOrSources], (v: any) => fn(v));
+
+  return new ComputedSignal<R>(sourceOrSources, (...values: unknown[]) => computeValue(values));
 }

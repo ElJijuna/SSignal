@@ -1,4 +1,4 @@
-import SSignal from "../ssignal";
+import SSignal from '../ssignal';
 
 describe('SSignal Performance', () => {
   it('should be able to execute 200,000 value updates and notify 10 clients in less than 500 ms ', async () => {

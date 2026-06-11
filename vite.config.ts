@@ -14,7 +14,7 @@ export default defineConfig({
       external: [],
       output: {
         exports: 'named',
-      }
+      },
     },
     target: 'es2022',
   },

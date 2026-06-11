@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <!-- Gradiente radial para el núcleo central (brillante y energético) -->
+    <radialGradient id="coreGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FCD34D" />
+      <stop offset="50%" stop-color="#F59E0B" />
+      <stop offset="100%" stop-color="#DC2626" />
+    </radialGradient>
+    
+    <!-- Gradiente para las ondas de señal (de intenso a sutil) -->
+    <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10B981" />
+      <stop offset="50%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#8B5CF6" />
+    </linearGradient>
+
+    <!-- Efecto de brillo intenso para el núcleo -->
+    <filter id="coreGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    
+    <!-- Efecto de brillo suave para las ondas -->
+    <filter id="waveGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- ========================================== -->
+  <!-- ONDAS DE SEÑAL (Propagación reactiva) -->
+  <!-- ========================================== -->
+  
+  <!-- Onda exterior (más sutil, opacidad baja) -->
+  <circle cx="100" cy="100" r="85" 
+          fill="none" 
+          stroke="url(#waveGrad)" 
+          stroke-width="3" 
+          opacity="0.3" 
+          filter="url(#waveGlow)"/>
+  
+  <!-- Onda media -->
+  <circle cx="100" cy="100" r="65" 
+          fill="none" 
+          stroke="url(#waveGrad)" 
+          stroke-width="4" 
+          opacity="0.5" 
+          filter="url(#waveGlow)"/>
+  
+  <!-- Onda interior (más intensa) -->
+  <circle cx="100" cy="100" r="45" 
+          fill="none" 
+          stroke="url(#waveGrad)" 
+          stroke-width="5" 
+          opacity="0.7" 
+          filter="url(#waveGlow)"/>
+
+  <!-- ========================================== -->
+  <!-- NÚCLEO DE LA SEÑAL (El valor reactivo) -->
+  <!-- ========================================== -->
+  
+  <!-- Círculo central con gradiente energético -->
+  <circle cx="100" cy="100" r="25" 
+          fill="url(#coreGrad)" 
+          filter="url(#coreGlow)"/>
+  
+  <!-- Punto brillante en el centro (el valor actual) -->
+  <circle cx="100" cy="100" r="8" 
+          fill="#FFFFFF" 
+          opacity="0.9"/>
+
+  <!-- ========================================== -->
+  <!-- "S" ESTILIZADA (Integrada en las ondas) -->
+  <!-- ========================================== -->
+  
+  <!-- Curva superior de la "S" -->
+  <path d="M 70 70 Q 100 50, 130 70" 
+        fill="none" 
+        stroke="url(#waveGrad)" 
+        stroke-width="6" 
+        stroke-linecap="round" 
+        opacity="0.8" 
+        filter="url(#waveGlow)"/>
+  
+  <!-- Curva inferior de la "S" -->
+  <path d="M 130 130 Q 100 150, 70 130" 
+        fill="none" 
+        stroke="url(#waveGrad)" 
+        stroke-width="6" 
+        stroke-linecap="round" 
+        opacity="0.8" 
+        filter="url(#waveGlow)"/>
+
+</svg>
