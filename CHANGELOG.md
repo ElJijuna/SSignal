@@ -1,3 +1,18 @@
+# [1.8.0](https://github.com/ElJijuna/ssignal/compare/v1.7.0...v1.8.0) (2026-09-28)
+
+
+### Bug Fixes
+
+* correct file extension for CommonJS module in package.json and vite config ([4a8c587](https://github.com/ElJijuna/ssignal/commit/4a8c5873db39c18e31ffa477c53d776eb3f22a90))
+* keep chained Map.set()/Set.add() calls reactive ([eee2589](https://github.com/ElJijuna/ssignal/commit/eee25895917cf0e011d8ac896ef1e27557a2caec))
+* keep Map/Set mutations reactive when chained and skip no-op changes ([b57d1e5](https://github.com/ElJijuna/ssignal/commit/b57d1e5a38b21f494ba51e8bb4e38551355dfdf5))
+* keep Map/Set mutations reactive when chained, skip no-op changes, and release abort listener on unsubscribe ([a855811](https://github.com/ElJijuna/ssignal/commit/a855811a595b668979f7755e660daa1f69f03d46))
+
+
+### Features
+
+* add in-place mutation support for arrays and objects, with single change event dispatch ([1099edf](https://github.com/ElJijuna/ssignal/commit/1099edf9b958d540c3c4bd6f6fd83ce49016d645))
+
 ## [1.7.1](https://github.com/ElJijuna/ssignal/compare/v1.7.0...v1.7.1) (2026-09-28)
 
 
