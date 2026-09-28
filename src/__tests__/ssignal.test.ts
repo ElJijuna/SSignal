@@ -119,6 +119,21 @@ describe('SSignal', () => {
     expect(callback).toHaveBeenCalledTimes(1);
   });
 
+  it('should remove its abort listener when unsubscribed manually', () => {
+    const signal = new SSignal<number>(0);
+    const controller = new AbortController();
+    const addSpy = jest.spyOn(controller.signal, 'addEventListener');
+    const removeSpy = jest.spyOn(controller.signal, 'removeEventListener');
+
+    const unsubscribe = signal.subscribe(jest.fn(), { signal: controller.signal });
+    const abortListener = addSpy.mock.calls.find(([type]) => type === 'abort')?.[1];
+
+    unsubscribe();
+
+    expect(abortListener).toBeDefined();
+    expect(removeSpy).toHaveBeenCalledWith('abort', abortListener);
+  });
+
   it('should not subscribe if the signal is already aborted', () => {
     const signal = new SSignal<number>(0);
     const controller = new AbortController();

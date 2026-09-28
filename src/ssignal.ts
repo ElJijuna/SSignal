@@ -88,7 +88,10 @@ export default class SSignal<T = unknown> extends EventTarget {
     const handler = (event: Event) => callback((event as CustomEvent<T>).detail);
     this.addEventListener('change', handler);
 
-    const unsubscribe = () => this.removeEventListener('change', handler);
+    const unsubscribe = () => {
+      this.removeEventListener('change', handler);
+      options?.signal?.removeEventListener('abort', unsubscribe);
+    };
 
     if (options?.signal) {
       options.signal.addEventListener('abort', unsubscribe, { once: true });
