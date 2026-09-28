@@ -8,7 +8,7 @@ export default defineConfig({
       entry: 'src/index.ts',
       name: 'SSignal',
       formats: ['es', 'cjs', 'umd'],
-      fileName: (format) => `ssignal.${format}.js`,
+      fileName: (format) => (format === 'cjs' ? 'ssignal.cjs' : `ssignal.${format}.js`),
     },
     rollupOptions: {
       external: [],
