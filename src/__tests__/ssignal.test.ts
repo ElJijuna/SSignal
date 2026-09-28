@@ -309,6 +309,37 @@ describe('SSignal', () => {
     expect(signal.value.has(2)).toBe(true);
   });
 
+  it('should not dispatch when a Map mutation leaves the Map unchanged', () => {
+    const signal = new SSignal(new Map([['a', 1]]));
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.value.set('a', 1);
+    expect(signal.value.delete('missing')).toBe(false);
+    expect(callback).not.toHaveBeenCalled();
+
+    signal.value.set('a', 2);
+    expect(callback).toHaveBeenCalledTimes(1);
+
+    signal.value.clear();
+    signal.value.clear();
+    expect(callback).toHaveBeenCalledTimes(2);
+  });
+
+  it('should not dispatch when a Set mutation leaves the Set unchanged', () => {
+    const signal = new SSignal(new Set([1]));
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.value.add(1);
+    expect(signal.value.delete(2)).toBe(false);
+    expect(callback).not.toHaveBeenCalled();
+
+    signal.value.clear();
+    signal.value.clear();
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
   it('should not dispatch when an updater function returns the same value', () => {
     const signal = new SSignal<number>(10);
     const callback = jest.fn();

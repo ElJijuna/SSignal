@@ -163,8 +163,20 @@ export default class SSignal<T = unknown> extends EventTarget {
 
         if (mutatingMethods.includes(String(prop))) {
           return (...args: unknown[]) => {
+            const sizeBefore = target.size;
+            const isMapSet = target instanceof Map && prop === 'set';
+            const hadKey = isMapSet && target.has(args[0]);
+            const previousEntry = isMapSet ? target.get(args[0]) : undefined;
+
             const result = (value as (...args: unknown[]) => unknown).apply(target, args);
-            this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
+
+            // Only notify when the collection actually changed: size moved, or Map.set() replaced a value.
+            const changed =
+              target.size !== sizeBefore || (hadKey && !Object.is(previousEntry, args[1]));
+
+            if (changed) {
+              this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
+            }
 
             // Map.set() and Set.add() return the collection; hand back the proxy so chained calls stay reactive.
             return result === target ? proxy : result;
