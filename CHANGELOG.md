@@ -1,3 +1,17 @@
+# [1.7.0](https://github.com/ElJijuna/ssignal/compare/v1.6.0...v1.7.0) (2026-06-11)
+
+
+### Features
+
+* enhance project setup with new scripts and dependencies ([a5e72b5](https://github.com/ElJijuna/ssignal/commit/a5e72b5be967174ce9be99dde6fb51b23002099a))
+
+# [1.6.0](https://github.com/ElJijuna/ssignal/compare/v1.5.0...v1.6.0) (2026-05-04)
+
+
+### Features
+
+* add reactive Set support (closes [#27](https://github.com/ElJijuna/ssignal/issues/27)) ([9d8183a](https://github.com/ElJijuna/ssignal/commit/9d8183a3a21ed7e7003b0f7afca5724c25602ed0))
+
 # [1.5.0](https://github.com/ElJijuna/ssignal/compare/v1.4.0...v1.5.0) (2026-05-03)
 
 
