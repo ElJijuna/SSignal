@@ -1,3 +1,10 @@
+## [1.7.1](https://github.com/ElJijuna/ssignal/compare/v1.7.0...v1.7.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* correct file extension for CommonJS module in package.json and vite config ([d5af401](https://github.com/ElJijuna/ssignal/commit/d5af401a0ae9c45ea1eaf20fd9e17e0c140b9775))
+
 # [1.7.0](https://github.com/ElJijuna/ssignal/compare/v1.6.0...v1.7.0) (2026-06-11)
 
 
