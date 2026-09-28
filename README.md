@@ -38,6 +38,15 @@ A lightweight, zero-dependency reactive signal built on top of the native `Event
 npm install ssignal
 ```
 
+### GitHub Packages
+
+Every release is also published to GitHub Packages as `@eljijuna/ssignal`. GitHub Packages requires authentication even for public packages (a token with `read:packages`):
+
+```sh
+echo "@eljijuna:registry=https://npm.pkg.github.com" >> .npmrc
+npm install @eljijuna/ssignal
+```
+
 ### CDN (browser)
 
 ```html
