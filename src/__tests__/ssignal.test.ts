@@ -285,6 +285,30 @@ describe('SSignal', () => {
     expect(signal.value.has(4)).toBe(true);
   });
 
+  it('should dispatch an event for each chained Map.set() call', () => {
+    const signal = new SSignal(new Map<string, number>());
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    const returned = signal.value.set('a', 1).set('b', 2);
+
+    expect(callback).toHaveBeenCalledTimes(2);
+    expect(returned).toBe(signal.value);
+    expect(signal.value.get('b')).toBe(2);
+  });
+
+  it('should dispatch an event for each chained Set.add() call', () => {
+    const signal = new SSignal(new Set<number>());
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    const returned = signal.value.add(1).add(2);
+
+    expect(callback).toHaveBeenCalledTimes(2);
+    expect(returned).toBe(signal.value);
+    expect(signal.value.has(2)).toBe(true);
+  });
+
   it('should not dispatch when an updater function returns the same value', () => {
     const signal = new SSignal<number>(10);
     const callback = jest.fn();

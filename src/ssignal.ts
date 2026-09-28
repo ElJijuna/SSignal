@@ -157,7 +157,7 @@ export default class SSignal<T = unknown> extends EventTarget {
     const mutatingMethods =
       original instanceof Map ? ['set', 'delete', 'clear'] : ['add', 'delete', 'clear'];
 
-    return new Proxy(original, {
+    const proxy = new Proxy(original, {
       get: (target, prop) => {
         const value = Reflect.get(target, prop);
 
@@ -166,7 +166,8 @@ export default class SSignal<T = unknown> extends EventTarget {
             const result = (value as (...args: unknown[]) => unknown).apply(target, args);
             this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
 
-            return result;
+            // Map.set() and Set.add() return the collection; hand back the proxy so chained calls stay reactive.
+            return result === target ? proxy : result;
           };
         }
 
@@ -177,5 +178,7 @@ export default class SSignal<T = unknown> extends EventTarget {
         return value;
       },
     });
+
+    return proxy;
   }
 }
