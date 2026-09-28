@@ -59,6 +59,13 @@ export class ComputedSignal<T> extends SSignal<T> {
   }
 
   /**
+   * @throws {TypeError} Always — computed signals are read-only.
+   */
+  override mutate(_: never): never {
+    throw new TypeError('Cannot mutate the value of a computed signal. It is read-only.');
+  }
+
+  /**
    * Removes all subscriptions to source signals.
    * Call this when the computed signal is no longer needed to free memory.
    */

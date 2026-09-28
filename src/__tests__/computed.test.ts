@@ -54,6 +54,15 @@ describe('computed()', () => {
     }).toThrow(TypeError);
   });
 
+  it('should throw when trying to mutate the value', () => {
+    const list = new SSignal([1]);
+    const copy = computed(list, (items) => [...items]);
+    const asSignal: SSignal<number[]> = copy;
+
+    expect(() => asSignal.mutate((items) => items.push(2))).toThrow(TypeError);
+    expect(copy.value).toEqual([1]);
+  });
+
   it('should be an instance of SSignal', () => {
     const count = new SSignal(0);
     const doubled = computed(count, (n) => n * 2);

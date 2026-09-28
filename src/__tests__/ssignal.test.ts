@@ -453,3 +453,115 @@ describe('SSignal', () => {
     expect(signal.value).toBe(2);
   });
 });
+
+describe('SSignal.mutate()', () => {
+  it('should dispatch once after mutating an array in place', () => {
+    const original = [1];
+    const signal = new SSignal(original);
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.mutate((list) => {
+      list.push(2);
+      list.push(3);
+    });
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith([1, 2, 3]);
+    expect(signal.value).toBe(original);
+  });
+
+  it('should dispatch after mutating an object property', () => {
+    const signal = new SSignal({ name: 'Ana', age: 30 });
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.mutate((user) => {
+      user.name = 'Eva';
+    });
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(signal.value.name).toBe('Eva');
+  });
+
+  it('should not dispatch when the mutator returns false', () => {
+    const signal = new SSignal([1, 2]);
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.mutate((list) => {
+      if (!list.includes(2)) {
+        list.push(2);
+        return;
+      }
+
+      return false;
+    });
+
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should dispatch once for several Map/Set mutations inside mutate()', () => {
+    const signal = new SSignal(new Map<string, number>());
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.mutate((map) => {
+      map.set('a', 1);
+      map.set('b', 2);
+      map.delete('a');
+    });
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect([...signal.value.keys()]).toEqual(['b']);
+
+    signal.value.set('c', 3);
+    expect(callback).toHaveBeenCalledTimes(2);
+  });
+
+  it('should dispatch once for nested mutate() calls', () => {
+    const signal = new SSignal<number[]>([]);
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    signal.mutate((outer) => {
+      outer.push(1);
+      signal.mutate((inner) => {
+        inner.push(2);
+      });
+    });
+
+    expect(callback).toHaveBeenCalledTimes(1);
+  });
+
+  it('should still dispatch and rethrow when the mutator throws', () => {
+    const signal = new SSignal<number[]>([]);
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    expect(() =>
+      signal.mutate((list) => {
+        list.push(1);
+        throw new Error('boom');
+      }),
+    ).toThrow('boom');
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith([1]);
+
+    signal.mutate((list) => {
+      list.push(2);
+    });
+    expect(callback).toHaveBeenCalledTimes(2);
+  });
+
+  it('should keep structuredClone working on the value', () => {
+    const signal = new SSignal({ items: [1] });
+
+    signal.mutate((state) => {
+      state.items.push(2);
+    });
+
+    expect(structuredClone(signal.value)).toEqual({ items: [1, 2] });
+  });
+});

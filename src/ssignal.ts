@@ -13,6 +13,7 @@
  */
 export default class SSignal<T = unknown> extends EventTarget {
   #value: T;
+  #mutateDepth = 0;
 
   /**
    * Creates a new SSignal instance.
@@ -58,6 +59,43 @@ export default class SSignal<T = unknown> extends EventTarget {
         ? (this.#wrapCollection(nextValue) as T)
         : nextValue;
     this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
+  }
+
+  /**
+   * Mutates the current value in place and dispatches a single change event afterwards.
+   * Use it for arrays, plain objects, or any value whose changes cannot be detected by
+   * assignment. Map/Set mutations made inside the mutator are folded into that single event,
+   * and nested `mutate()` calls only dispatch once, when the outermost call finishes.
+   *
+   * Return `false` from the mutator to skip the event (e.g. when nothing changed).
+   * If the mutator throws, the event is still dispatched (the value may be partially
+   * mutated) and the error is rethrown.
+   *
+   * @param mutator - Function that receives the current value and mutates it.
+   *
+   * @example
+   * const todos = new SSignal<string[]>([]);
+   * todos.mutate((list) => list.push('write docs')); // one change event
+   *
+   * @example
+   * const user = new SSignal({ name: 'Ana' });
+   * user.mutate((u) => {
+   *   u.name = 'Eva';
+   * });
+   */
+  mutate(mutator: (value: T) => unknown): void {
+    this.#mutateDepth++;
+    let skip = false;
+
+    try {
+      skip = mutator(this.#value) === false;
+    } finally {
+      this.#mutateDepth--;
+
+      if (this.#mutateDepth === 0 && !skip) {
+        this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
+      }
+    }
   }
 
   /**
@@ -177,7 +215,8 @@ export default class SSignal<T = unknown> extends EventTarget {
             const changed =
               target.size !== sizeBefore || (hadKey && !Object.is(previousEntry, args[1]));
 
-            if (changed) {
+            // Inside mutate(), the single event is dispatched when the mutator finishes.
+            if (changed && this.#mutateDepth === 0) {
               this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
             }
 

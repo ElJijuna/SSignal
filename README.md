@@ -25,6 +25,7 @@ A lightweight, zero-dependency reactive signal built on top of the native `Event
 - **Framework-agnostic** — works in the browser, Node.js ≥ 18.7, and any runtime that supports `EventTarget`.
 - **Reactive `Map` support** — mutations via `set()`, `delete()`, and `clear()` automatically dispatch change events.
 - **Updater functions** — `signal.value = (prev) => prev + 1` for safe derived updates.
+- **In-place mutations** — `signal.mutate((list) => list.push(item))` for arrays and objects, with a single change event.
 - **Immediate mode** — `{ immediate: true }` fires the callback with the current value on subscribe.
 - **One-time subscriptions** — `once()` listens for the next change only, then unsubscribes itself.
 - **Computed signals** — derive read-only signals from one or more sources with `computed()`.
@@ -51,6 +52,7 @@ npm install ssignal
 | `new SSignal(value: T)` | Creates a signal. `Map` values are automatically wrapped in a reactive proxy. |
 | `signal.value` | Gets the current value. |
 | `signal.value = newValue \| (prev: T) => T` | Sets a new value. Accepts a direct value or an updater function. No event is fired when the value does not change. |
+| `signal.mutate(mutator)` | Mutates the value in place (arrays, objects…) and fires one change event afterwards. Return `false` from the mutator to skip the event. Throws on computed signals. |
 | `signal.subscribe(callback, options?)` | Registers a listener called on every change. Returns an unsubscribe function. Options: `{ signal?: AbortSignal, immediate?: boolean }`. |
 | `signal.once(callback, options?)` | Registers a listener called only on the next change, then unsubscribes automatically. Returns an unsubscribe function. Options: `{ signal?: AbortSignal }`. |
 | `computed(source, fn)` | Creates a read-only `ComputedSignal` derived from one source. |
@@ -191,6 +193,28 @@ store.value.set('a', 1);    // logs: store changed, size: 1
 store.value.set('b', 2);    // logs: store changed, size: 2
 store.value.delete('a');    // logs: store changed, size: 1
 store.value.clear();        // logs: store changed, size: 0
+```
+
+### Arrays and objects
+
+Arrays and plain objects are not wrapped, so in-place changes such as `push()` or `obj.x = 1` are not detected on their own. Use `mutate()`: it runs your changes and fires one change event at the end.
+
+```ts
+import SSignal from 'ssignal';
+
+const todos = new SSignal<string[]>([]);
+todos.subscribe((list) => console.log('todos:', list.length));
+
+todos.mutate((list) => {
+  list.push('write docs');
+  list.push('ship it');
+}); // logs once: todos: 2
+
+// Return false to skip the event when nothing changed
+todos.mutate((list) => {
+  if (list.includes('ship it')) return false;
+  list.push('ship it');
+}); // no log
 ```
 
 ### Immediate mode
