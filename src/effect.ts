@@ -1,4 +1,4 @@
-import type { ExtractValues } from './computed';
+import { type ExtractValues, isObject } from './computed';
 import SSignal, { type Unsubscribe } from './ssignal';
 
 /** Function an effect may return to undo its work before the next run and on dispose. */
@@ -87,7 +87,9 @@ export function effect(
 
   const unsubscribers = sources.map((source, index) =>
     source.subscribe((value) => {
-      const mutatedInPlace = Object.is(value, seenValues[index]);
+      // Only an object can be mutated in place; the same primitive means it changed and was
+      // restored inside a batch().
+      const mutatedInPlace = isObject(value) && Object.is(value, seenValues[index]);
       seenValues[index] = value;
 
       const values = getValues();

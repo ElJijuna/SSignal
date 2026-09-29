@@ -160,4 +160,101 @@ describe('batch()', () => {
 
     expect(callback).toHaveBeenCalledWith(1);
   });
+
+  it('should rethrow only the first error when several signals fail to flush', () => {
+    const first = new SSignal(0);
+    const second = new SSignal(0);
+    first.subscribe(() => {
+      first.value = (n) => n + 1;
+    });
+    second.subscribe(() => {
+      second.value = (n) => n + 1;
+    });
+
+    let thrown: unknown;
+    try {
+      batch(() => {
+        first.value = 1;
+        second.value = 1;
+      });
+    } catch (err) {
+      thrown = err;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    expect(first.value).toBeGreaterThan(1);
+    expect(second.value).toBeGreaterThan(1);
+  });
+});
+
+describe('batch() with computed signals', () => {
+  it('should recompute an object-valued computed once when several sources change', () => {
+    const price = new SSignal(100);
+    const qty = new SSignal(1);
+    const derive = jest.fn(([p, q]: [number, number]) => ({ total: p * q }));
+    const order = computed([price, qty], derive);
+    const callback = jest.fn();
+    order.subscribe(callback);
+    derive.mockClear();
+
+    batch(() => {
+      price.value = 200;
+      qty.value = 3;
+    });
+
+    expect(derive).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith({ total: 600 });
+  });
+
+  it('should not recompute when a batch changes a source and restores it', () => {
+    const count = new SSignal(1);
+    const derive = jest.fn((n: number) => ({ n }));
+    const wrapped = computed(count, derive);
+    const callback = jest.fn();
+    wrapped.subscribe(callback);
+    derive.mockClear();
+
+    batch(() => {
+      count.value = 2;
+      count.value = 1;
+    });
+
+    expect(derive).not.toHaveBeenCalled();
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should still recompute for a source mutated in place inside the batch', () => {
+    const items = new SSignal<number[]>([]);
+    const label = new SSignal('items');
+    const derive = jest.fn(([list, name]: [number[], string]) => `${name}: ${list.length}`);
+    const summary = computed([items, label], derive);
+    const callback = jest.fn();
+    summary.subscribe(callback);
+
+    batch(() => {
+      items.mutate((list) => list.push(1, 2));
+      label.value = 'rows';
+    });
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith('rows: 2');
+  });
+});
+
+describe('computed diamonds', () => {
+  it('should recompute the join once per change, without batch()', () => {
+    const count = new SSignal(1);
+    const doubled = computed(count, (n) => n * 2);
+    const derive = jest.fn(([c, d]: [number, number]) => ({ sum: c + d }));
+    const sum = computed([count, doubled], derive);
+    const received: Array<{ sum: number }> = [];
+    sum.subscribe((value) => received.push(value));
+    derive.mockClear();
+
+    count.value = 2;
+
+    expect(derive).toHaveBeenCalledTimes(1);
+    expect(received).toEqual([{ sum: 6 }]);
+  });
 });

@@ -139,3 +139,19 @@ describe('effect()', () => {
     expect(fn).toHaveBeenLastCalledWith(10);
   });
 });
+
+describe('effect() inside batch()', () => {
+  it('should not run again when a batch changes a source and restores it', () => {
+    const count = new SSignal(1);
+    const run = jest.fn();
+    effect(count, run);
+    run.mockClear();
+
+    batch(() => {
+      count.value = 2;
+      count.value = 1;
+    });
+
+    expect(run).not.toHaveBeenCalled();
+  });
+});

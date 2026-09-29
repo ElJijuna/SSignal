@@ -100,6 +100,37 @@ describe('SSignal.dispose()', () => {
     }
     expect(callback).not.toHaveBeenCalled();
   });
+
+  it('should still load and dispose on runtimes without Symbol.dispose', async () => {
+    const originalSymbol = globalThis.Symbol;
+    // Symbol.dispose is non-configurable, so stand in a Symbol that lacks it while the module loads.
+    globalThis.Symbol = Object.assign(
+      (description?: string | number) => originalSymbol(description),
+      { iterator: originalSymbol.iterator },
+    ) as unknown as SymbolConstructor;
+
+    let Isolated: typeof SSignal | undefined;
+    try {
+      await jest.isolateModulesAsync(async () => {
+        Isolated = (await import('../ssignal')).default;
+      });
+    } finally {
+      globalThis.Symbol = originalSymbol;
+    }
+
+    if (!Isolated) {
+      throw new Error('ssignal module did not load');
+    }
+
+    const signal = new Isolated(0);
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    expect(Object.hasOwn(Isolated.prototype, Symbol.dispose)).toBe(false);
+    signal.dispose();
+    signal.value = 1;
+    expect(callback).not.toHaveBeenCalled();
+  });
 });
 
 describe('ComputedSignal.dispose()', () => {

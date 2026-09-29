@@ -14,7 +14,8 @@ if (!parentValueDescriptor?.set) {
 
 const parentSetter = parentValueDescriptor.set as (this: SSignal<unknown>, value: unknown) => void;
 
-const isObject = (value: unknown): value is object =>
+/** @internal Whether a value is a reference that can be mutated in place. */
+export const isObject = (value: unknown): value is object =>
   (typeof value === 'object' && value !== null) || typeof value === 'function';
 
 const registry = new FinalizationRegistry<() => void>((dispose) => dispose());
@@ -44,6 +45,9 @@ export class ComputedSignal<T> extends SSignal<T> {
     const getValues = () => sources.map((s) => s.value);
     // Last value seen from each source, to tell in-place mutations apart from replacements.
     const sourceValues = getValues();
+    // Source values of the last computation. A notification that brings none new, such as the
+    // second changed source of a batch() flush or the second path of a diamond, is skipped.
+    let computedValues = sourceValues.slice();
     super(fn(...sourceValues), options);
 
     const selfRef = new WeakRef(this);
@@ -54,8 +58,9 @@ export class ComputedSignal<T> extends SSignal<T> {
 
     const unsubscribers = sources.map((s, index) =>
       s.subscribe((value) => {
-        // A change event carrying the same reference means the source was mutated in place.
-        const mutatedInPlace = Object.is(value, sourceValues[index]);
+        // A change event carrying the same object means the source was mutated in place. A
+        // primitive cannot be: the same one means it changed and was restored inside a batch().
+        const mutatedInPlace = isObject(value) && Object.is(value, sourceValues[index]);
         sourceValues[index] = value;
 
         const self = retainer.self ?? selfRef.deref();
@@ -65,7 +70,14 @@ export class ComputedSignal<T> extends SSignal<T> {
           return;
         }
 
-        const nextValue = fn(...getValues());
+        const values = getValues();
+
+        if (!mutatedInPlace && values.every((v, i) => Object.is(v, computedValues[i]))) {
+          return;
+        }
+
+        computedValues = values;
+        const nextValue = fn(...values);
 
         // The derived object may be (or be reachable from) what was mutated, so an equal
         // reference does not mean it is unchanged: notify instead of letting the setter skip it.

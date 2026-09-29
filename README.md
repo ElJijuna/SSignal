@@ -123,11 +123,13 @@ flowchart TD
 
   dispatch --> subscribe["subscribe() listeners"]
   dispatch --> once["once() listeners<br/>removed after first call"]
-  dispatch --> recompute
+  dispatch --> sourcesChanged
   dispatch --> changed
 
   subgraph computed["ComputedSignal (read-only)"]
-    recompute["fn(...source values)"]
+    sourcesChanged{"new source values or<br/>in-place mutation?"}
+    sourcesChanged -- "no, e.g. second source<br/>of the same batch" --> noRecompute(["skipped"])
+    sourcesChanged -- "yes" --> recompute["fn(...source values)"]
     recompute -- "source mutated in place,<br/>same object returned" --> notify2["#notify() of the computed"]
     recompute -- "otherwise" --> equals2["equals check of the computed"]
   end
@@ -152,7 +154,7 @@ flowchart TD
 - **Writes** come from three places: assignments (filtered by `equals`), `mutate()`, and the Map/Set proxy, which only notifies when the collection actually changed. Inside `mutate()`, Map/Set changes are folded into its single event.
 - **`#notify()`** queues the signal while a `batch()` is running, so it notifies once when the batch ends. If a listener changes the signal during a dispatch, the change is delivered in a follow-up round rather than a nested one, so every listener ends on the latest value.
 - **Consumers** all listen to that event: `subscribe()` and `once()` callbacks, `ComputedSignal`, and `effect()`.
-- **`ComputedSignal`** re-runs `fn` on each source change, then goes through its own `equals` check, or notifies directly after an in-place mutation. Its sources reference it only through a `WeakRef`, but it stays alive while it has listeners. `dispose()` removes its source subscriptions and its own subscribers.
+- **`ComputedSignal`** re-runs `fn` when its sources bring new values or were mutated in place, then goes through its own `equals` check, or notifies directly after an in-place mutation. It skips notifications that bring nothing new, so several sources changed in one `batch()`, or both paths of a diamond, cause a single run. Its sources reference it only through a `WeakRef`, but it stays alive while it has listeners. `dispose()` removes its source subscriptions and its own subscribers.
 - **`effect()`** runs the previous cleanup and then `fn` whenever its sources bring new values or were mutated in place, and skips notifications that bring nothing new, so several sources changed in one `batch()` cause a single run. Its dispose function stops it and runs the last cleanup.
 - **Teardown**: `unsubscribe()` or an `AbortSignal` removes one subscription, while `dispose()` (also called at the end of a `using` block) removes every `subscribe()`/`once()` subscription of a signal at once.
 
@@ -482,7 +484,7 @@ batch(() => {
 }); // logs once: total: 600
 ```
 
-Values change immediately inside `batch()`; only the events wait. When a listener changes the signal it is listening to, the new value is delivered in a follow-up round after every listener has seen the current one, so all listeners finish on the latest value.
+`total` is computed once, with both new values, even when `fn` returns a new object each time. Values change immediately inside `batch()`; only the events wait. When a listener changes the signal it is listening to, the new value is delivered in a follow-up round after every listener has seen the current one, so all listeners finish on the latest value.
 
 ### Disposing subscriptions
 
