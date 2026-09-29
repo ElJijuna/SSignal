@@ -29,6 +29,7 @@ A lightweight, zero-dependency reactive signal built on top of the native `Event
 - **Immediate mode** — `{ immediate: true }` fires the callback with the current value on subscribe.
 - **One-time subscriptions** — `once()` listens for the next change only, then unsubscribes itself.
 - **Computed signals** — derive read-only signals from one or more sources with `computed()`.
+- **Effects** — `effect()` runs side effects now and on every change, with cleanup and a single dispose.
 - **Custom equality** — `{ equals }` decides when an assigned value counts as a change.
 - **Batched updates** — `batch()` groups several changes into one notification per signal.
 - **Disposable** — `dispose()` removes every subscription at once, and signals work with `using`.
@@ -62,6 +63,8 @@ npm install ssignal
 | `computed([...sources], fn, options?)` | Creates a read-only `ComputedSignal` derived from multiple sources. Accepts the same `equals` option. |
 | `signal.dispose()` | Removes every `subscribe()`/`once()` subscription at once. The signal stays usable. Also available as `[Symbol.dispose]()` for `using`. |
 | `computed.dispose()` | Removes all source subscriptions and its own subscribers. Call when the signal is no longer needed. |
+| `effect(source, fn, options?)` | Runs `fn` with the current value, then after every change. `fn` may return a cleanup, called before the next run and on dispose. Returns a dispose function. Options: `EffectOptions`. |
+| `effect([...sources], fn, options?)` | Same, with the values of several sources as a tuple. Sources changed together in `batch()` cause a single run. |
 | `batch(fn)` | Runs `fn` and defers change events until it returns, so each changed signal notifies once with its final value. Returns what `fn` returns. |
 
 ### Types
@@ -69,7 +72,14 @@ npm install ssignal
 All types are exported from the package entry:
 
 ```ts
-import type { OnceOptions, SSignalOptions, SubscribeOptions, Unsubscribe } from 'ssignal';
+import type {
+  EffectCleanup,
+  EffectOptions,
+  OnceOptions,
+  SSignalOptions,
+  SubscribeOptions,
+  Unsubscribe,
+} from 'ssignal';
 ```
 
 | Type | Definition |
@@ -77,6 +87,8 @@ import type { OnceOptions, SSignalOptions, SubscribeOptions, Unsubscribe } from 
 | `Unsubscribe` | `() => void` |
 | `SubscribeOptions` | `{ signal?: AbortSignal; immediate?: boolean }` |
 | `OnceOptions` | `{ signal?: AbortSignal; immediate?: boolean }` |
+| `EffectOptions` | `{ signal?: AbortSignal }` |
+| `EffectCleanup` | `() => void` |
 | `SSignalOptions<T>` | `{ equals?: (prev: T, next: T) => boolean }` |
 
 ### Events
@@ -385,6 +397,30 @@ const list = computed(todos, (items) => items);
 list.subscribe((items) => console.log(items.length));
 todos.mutate((items) => items.push('write docs')); // logs: 1
 ```
+
+### Effects
+
+`effect()` runs a side effect right away and again whenever its sources change. Dependencies are listed explicitly, like in `computed()`. Return a function to clean up before the next run and when the effect is disposed:
+
+```ts
+import SSignal, { effect } from 'ssignal';
+
+const userId = new SSignal(1);
+
+const dispose = effect(userId, (id) => {
+  const controller = new AbortController();
+  fetch(`/api/users/${id}`, { signal: controller.signal })
+    .then((res) => res.json())
+    .then(render);
+
+  return () => controller.abort(); // cancels the previous request
+});
+
+userId.value = 2; // aborts the request for user 1, fetches user 2
+dispose();        // aborts the pending request, stops following userId
+```
+
+With several sources, `fn` receives their values as a tuple, and sources changed together inside `batch()` trigger a single run. Pass `{ signal }` to dispose the effect with an `AbortController`.
 
 ### Custom equality
 

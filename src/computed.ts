@@ -1,6 +1,6 @@
 import SSignal, { notify, type SSignalOptions } from './ssignal';
 
-type ExtractValues<T extends readonly SSignal<unknown>[]> = {
+export type ExtractValues<T extends readonly SSignal<unknown>[]> = {
   [K in keyof T]: T[K] extends SSignal<infer V> ? V : never;
 };
 

@@ -1,4 +1,5 @@
 export { ComputedSignal, computed } from './computed';
+export { type EffectCleanup, type EffectOptions, effect } from './effect';
 export {
   batch,
   default,
