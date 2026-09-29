@@ -12,6 +12,9 @@ if (!parentValueDescriptor?.set) {
 
 const parentSetter = parentValueDescriptor.set as (this: SSignal<unknown>, value: unknown) => void;
 
+const isObject = (value: unknown): value is object =>
+  (typeof value === 'object' && value !== null) || typeof value === 'function';
+
 const registry = new FinalizationRegistry<() => void>((dispose) => dispose());
 
 /**
@@ -31,7 +34,9 @@ export class ComputedSignal<T> extends SSignal<T> {
   /** @internal */
   constructor(sources: readonly SSignal<unknown>[], fn: (...values: unknown[]) => T) {
     const getValues = () => sources.map((s) => s.value);
-    super(fn(...getValues()));
+    // Last value seen from each source, to tell in-place mutations apart from replacements.
+    const sourceValues = getValues();
+    super(fn(...sourceValues));
 
     const selfRef = new WeakRef(this);
     // Holds a strong reference from the source subscriptions while this signal has listeners,
@@ -39,11 +44,25 @@ export class ComputedSignal<T> extends SSignal<T> {
     // from methods: a closure here capturing `this` would pin it through the shared scope.
     const retainer: { self?: ComputedSignal<T> } = {};
 
-    const unsubscribers = sources.map((s) =>
-      s.subscribe(() => {
+    const unsubscribers = sources.map((s, index) =>
+      s.subscribe((value) => {
+        // A change event carrying the same reference means the source was mutated in place.
+        const mutatedInPlace = Object.is(value, sourceValues[index]);
+        sourceValues[index] = value;
+
         const self = retainer.self ?? selfRef.deref();
-        if (self) {
-          parentSetter.call(self, fn(...getValues()));
+        if (!self) {
+          return;
+        }
+
+        const nextValue = fn(...getValues());
+
+        // The derived object may be (or be reachable from) what was mutated, so an equal
+        // reference does not mean it is unchanged: notify instead of letting the setter skip it.
+        if (mutatedInPlace && isObject(nextValue) && Object.is(nextValue, self.value)) {
+          self.dispatchEvent(new CustomEvent<T>('change', { detail: nextValue }));
+        } else {
+          parentSetter.call(self, nextValue);
         }
       }),
     );

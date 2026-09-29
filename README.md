@@ -301,6 +301,16 @@ total.value = 0; // throws TypeError
 total.dispose();
 ```
 
+Computed signals skip updates when the derived value is unchanged, except after an in-place mutation of a source (`mutate()` or a Map/Set change). There, a derived object with the same reference still notifies, because it may be what was mutated:
+
+```ts
+const todos = new SSignal<string[]>([]);
+const list = computed(todos, (items) => items);
+
+list.subscribe((items) => console.log(items.length));
+todos.mutate((items) => items.push('write docs')); // logs: 1
+```
+
 ### AbortController
 
 ```ts

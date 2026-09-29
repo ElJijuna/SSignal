@@ -124,6 +124,95 @@ describe('computed()', () => {
     expect(callback).toHaveBeenCalledWith(14);
   });
 
+  describe('in-place mutations of a source', () => {
+    it('should notify when the derived value is the mutated source itself', () => {
+      const list = new SSignal<number[]>([]);
+      const same = computed(list, (items) => items);
+      const callback = jest.fn();
+      same.subscribe(callback);
+
+      list.mutate((items) => items.push(1));
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).toHaveBeenCalledWith([1]);
+    });
+
+    it('should notify when the derived value is a nested object mutated in place', () => {
+      const state = new SSignal({ user: { name: 'Ana' } });
+      const user = computed(state, (s) => s.user);
+      const callback = jest.fn();
+      user.subscribe(callback);
+
+      state.mutate((s) => {
+        s.user.name = 'Eva';
+      });
+
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).toHaveBeenCalledWith({ name: 'Eva' });
+    });
+
+    it('should propagate through a chain of computed signals', () => {
+      const list = new SSignal<number[]>([]);
+      const outer = computed(
+        computed(list, (items) => items),
+        (items) => items,
+      );
+      const callback = jest.fn();
+      outer.subscribe(callback);
+
+      list.mutate((items) => items.push(1));
+
+      expect(callback).toHaveBeenCalledTimes(1);
+    });
+
+    it('should notify for a multi-source computed when one source is mutated in place', () => {
+      const list = new SSignal<number[]>([1]);
+      const limit = new SSignal(10);
+      const same = computed([list, limit], ([items]) => items);
+      const callback = jest.fn();
+      same.subscribe(callback);
+
+      list.mutate((items) => items.push(2));
+
+      expect(callback).toHaveBeenCalledTimes(1);
+    });
+
+    it('should still skip primitive derived values that did not change', () => {
+      const list = new SSignal<number[]>([1, 2]);
+      const length = computed(list, (items) => items.length);
+      const callback = jest.fn();
+      length.subscribe(callback);
+
+      list.mutate((items) => {
+        items[0] = 5;
+      });
+
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it('should still skip an unchanged object when the source is replaced', () => {
+      const state = new SSignal({ user: { name: 'Ana' }, count: 0 });
+      const user = computed(state, (s) => s.user);
+      const callback = jest.fn();
+      user.subscribe(callback);
+
+      state.value = (s) => ({ ...s, count: 1 });
+
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it('should not notify when the mutation is skipped', () => {
+      const list = new SSignal<number[]>([]);
+      const same = computed(list, (items) => items);
+      const callback = jest.fn();
+      same.subscribe(callback);
+
+      list.mutate(() => false);
+
+      expect(callback).not.toHaveBeenCalled();
+    });
+  });
+
   describe('garbage collection', () => {
     it('should keep notifying a subscribed computed that is not referenced elsewhere', async () => {
       const count = new SSignal(1);
