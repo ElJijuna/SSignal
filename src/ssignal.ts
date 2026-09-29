@@ -7,6 +7,20 @@ const batchedSignals = new Set<SSignal<unknown>>();
 /** @internal Dispatches a change event for `signal`, honoring batching and re-entrancy. */
 export let notify: (signal: SSignal<unknown>) => void;
 
+/** Function returned by `subscribe()` and `once()` that removes the listener. */
+export type Unsubscribe = () => void;
+
+/** Options accepted by `subscribe()`. */
+export type SubscribeOptions = {
+  /** Removes the listener when this AbortSignal aborts. */
+  signal?: AbortSignal;
+  /** Calls the listener synchronously with the current value before returning. */
+  immediate?: boolean;
+};
+
+/** Options accepted by `once()`. */
+export type OnceOptions = Pick<SubscribeOptions, 'signal'>;
+
 /** Options accepted by the `SSignal` constructor and `computed()`. */
 export type SSignalOptions<T> = {
   /**
@@ -54,7 +68,8 @@ export default class SSignal<T = unknown> extends EventTarget {
    * @param value - The initial value of the signal.
    * @param options.equals - Custom equality check for assignments. Defaults to `Object.is`.
    */
-  constructor(value: T, options?: SSignalOptions<T>) {
+  // NoInfer: T comes from the value only, so `new SSignal(0, { equals })` is SSignal<number>, not SSignal<0>.
+  constructor(value: T, options?: SSignalOptions<NoInfer<T>>) {
     super();
     this.#equals = (options?.equals ?? Object.is) as (prev: unknown, next: unknown) => boolean;
 
@@ -152,7 +167,7 @@ export default class SSignal<T = unknown> extends EventTarget {
    * @example
    * signal.subscribe((v) => render(v), { immediate: true }); // render called immediately with current value
    */
-  subscribe(callback: (value: T) => void, options?: { signal?: AbortSignal; immediate?: boolean }) {
+  subscribe(callback: (value: T) => void, options?: SubscribeOptions): Unsubscribe {
     if (options?.signal?.aborted) {
       return () => {};
     }
@@ -193,7 +208,7 @@ export default class SSignal<T = unknown> extends EventTarget {
    * const unsubscribe = signal.once((v) => console.log('first change:', v));
    * unsubscribe(); // cancels if the signal has not changed yet
    */
-  once(callback: (value: T) => void, options?: { signal?: AbortSignal }) {
+  once(callback: (value: T) => void, options?: OnceOptions): Unsubscribe {
     if (options?.signal?.aborted) {
       return () => {};
     }

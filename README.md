@@ -51,16 +51,31 @@ npm install ssignal
 
 | Member | Description |
 | :----- | :---------- |
-| `new SSignal(value: T, options?)` | Creates a signal. `Map` values are automatically wrapped in a reactive proxy. Options: `{ equals?: (prev: T, next: T) => boolean }`. |
+| `new SSignal(value: T, options?)` | Creates a signal. `Map` values are automatically wrapped in a reactive proxy. Options: `SSignalOptions<T>`. |
 | `signal.value` | Gets the current value. |
 | `signal.value = newValue \| (prev: T) => T` | Sets a new value. Accepts a direct value or an updater function. No event is fired when the value does not change. |
 | `signal.mutate(mutator)` | Mutates the value in place (arrays, objects…) and fires one change event afterwards. Return `false` from the mutator to skip the event. Throws on computed signals. |
-| `signal.subscribe(callback, options?)` | Registers a listener called on every change. Returns an unsubscribe function. Options: `{ signal?: AbortSignal, immediate?: boolean }`. |
-| `signal.once(callback, options?)` | Registers a listener called only on the next change, then unsubscribes automatically. Returns an unsubscribe function. Options: `{ signal?: AbortSignal }`. |
+| `signal.subscribe(callback, options?)` | Registers a listener called on every change. Returns an `Unsubscribe` function. Options: `SubscribeOptions`. |
+| `signal.once(callback, options?)` | Registers a listener called only on the next change, then unsubscribes automatically. Returns an `Unsubscribe` function. Options: `OnceOptions`. |
 | `computed(source, fn, options?)` | Creates a read-only `ComputedSignal` derived from one source. Accepts the same `equals` option. |
 | `computed([...sources], fn, options?)` | Creates a read-only `ComputedSignal` derived from multiple sources. Accepts the same `equals` option. |
 | `computed.dispose()` | Removes all source subscriptions. Call when the signal is no longer needed. |
 | `batch(fn)` | Runs `fn` and defers change events until it returns, so each changed signal notifies once with its final value. Returns what `fn` returns. |
+
+### Types
+
+All types are exported from the package entry:
+
+```ts
+import type { OnceOptions, SSignalOptions, SubscribeOptions, Unsubscribe } from 'ssignal';
+```
+
+| Type | Definition |
+| :--- | :--------- |
+| `Unsubscribe` | `() => void` |
+| `SubscribeOptions` | `{ signal?: AbortSignal; immediate?: boolean }` |
+| `OnceOptions` | `{ signal?: AbortSignal }` |
+| `SSignalOptions<T>` | `{ equals?: (prev: T, next: T) => boolean }` |
 
 ### Events
 
