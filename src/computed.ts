@@ -18,10 +18,15 @@ const registry = new FinalizationRegistry<() => void>((dispose) => dispose());
  * A read-only signal whose value is automatically derived from one or more source signals.
  * Use `computed()` to create instances — do not instantiate directly.
  *
+ * While it has `change` listeners, the computed signal is kept alive by its sources, so
+ * `computed(source, fn).subscribe(cb)` keeps working without holding a reference to it.
+ *
  * Call `dispose()` when the computed signal is no longer needed to remove all source subscriptions.
  */
 export class ComputedSignal<T> extends SSignal<T> {
   #dispose: () => void;
+  #retainer: { self?: ComputedSignal<T> };
+  #listeners = new Set<EventListenerOrEventListenerObject>();
 
   /** @internal */
   constructor(sources: readonly SSignal<unknown>[], fn: (...values: unknown[]) => T) {
@@ -29,22 +34,53 @@ export class ComputedSignal<T> extends SSignal<T> {
     super(fn(...getValues()));
 
     const selfRef = new WeakRef(this);
+    // Holds a strong reference from the source subscriptions while this signal has listeners,
+    // so an unreferenced but subscribed computed is not garbage collected. It is only filled in
+    // from methods: a closure here capturing `this` would pin it through the shared scope.
+    const retainer: { self?: ComputedSignal<T> } = {};
 
     const unsubscribers = sources.map((s) =>
       s.subscribe(() => {
-        const self = selfRef.deref();
+        const self = retainer.self ?? selfRef.deref();
         if (self) {
           parentSetter.call(self, fn(...getValues()));
         }
       }),
     );
 
+    this.#retainer = retainer;
     this.#dispose = () => {
+      retainer.self = undefined;
       for (const unsubscribe of unsubscribers) {
         unsubscribe();
       }
     };
     registry.register(this, this.#dispose, this);
+  }
+
+  override addEventListener(
+    type: string,
+    callback: EventListenerOrEventListenerObject | null,
+    options?: AddEventListenerOptions | boolean,
+  ): void {
+    super.addEventListener(type, callback, options);
+
+    if (type === 'change' && callback) {
+      this.#listeners.add(callback);
+      this.#retainer.self = this;
+    }
+  }
+
+  override removeEventListener(
+    type: string,
+    callback: EventListenerOrEventListenerObject | null,
+    options?: EventListenerOptions | boolean,
+  ): void {
+    super.removeEventListener(type, callback, options);
+
+    if (type === 'change' && callback && this.#listeners.delete(callback)) {
+      this.#retainer.self = this.#listeners.size > 0 ? this : undefined;
+    }
   }
 
   override get value(): T {
@@ -71,6 +107,7 @@ export class ComputedSignal<T> extends SSignal<T> {
    */
   dispose(): void {
     registry.unregister(this);
+    this.#listeners.clear();
     this.#dispose();
   }
 }

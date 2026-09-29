@@ -1,5 +1,18 @@
+import { setFlagsFromString } from 'node:v8';
+import { runInNewContext } from 'node:vm';
 import { ComputedSignal, computed } from '../computed';
 import SSignal from '../ssignal';
+
+setFlagsFromString('--expose-gc');
+const gc = runInNewContext('gc') as () => void;
+
+// FinalizationRegistry callbacks run asynchronously, so give them a few turns after each collection.
+const collectGarbage = async () => {
+  for (let i = 0; i < 5; i++) {
+    gc();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+};
 
 describe('computed()', () => {
   it('should derive value from a single source', () => {
@@ -109,5 +122,78 @@ describe('computed()', () => {
 
     expect(callback).toHaveBeenCalledTimes(1);
     expect(callback).toHaveBeenCalledWith(14);
+  });
+
+  describe('garbage collection', () => {
+    it('should keep notifying a subscribed computed that is not referenced elsewhere', async () => {
+      const count = new SSignal(1);
+      const callback = jest.fn();
+      computed(count, (n) => n * 2).subscribe(callback);
+
+      await collectGarbage();
+      count.value = 2;
+
+      expect(callback).toHaveBeenCalledWith(4);
+    });
+
+    it('should keep a pending once() on an unreferenced computed alive', async () => {
+      const count = new SSignal(1);
+      const callback = jest.fn();
+      computed(count, (n) => n * 2).once(callback);
+
+      await collectGarbage();
+      count.value = 2;
+
+      expect(callback).toHaveBeenCalledWith(4);
+    });
+
+    it('should allow collection once every subscription is removed', async () => {
+      const count = new SSignal(1);
+      let ref: WeakRef<ComputedSignal<number>>;
+
+      (() => {
+        const doubled = computed(count, (n) => n * 2);
+        const unsubscribe = doubled.subscribe(() => {});
+        unsubscribe();
+        ref = new WeakRef(doubled);
+      })();
+
+      await collectGarbage();
+
+      expect(ref?.deref()).toBeUndefined();
+    });
+
+    it('should allow collection after the subscription is aborted', async () => {
+      const count = new SSignal(1);
+      const controller = new AbortController();
+      let ref: WeakRef<ComputedSignal<number>>;
+
+      (() => {
+        const doubled = computed(count, (n) => n * 2);
+        doubled.subscribe(() => {}, { signal: controller.signal });
+        ref = new WeakRef(doubled);
+      })();
+
+      controller.abort();
+      await collectGarbage();
+
+      expect(ref?.deref()).toBeUndefined();
+    });
+
+    it('should allow collection after dispose() even with active subscriptions', async () => {
+      const count = new SSignal(1);
+      let ref: WeakRef<ComputedSignal<number>>;
+
+      (() => {
+        const doubled = computed(count, (n) => n * 2);
+        doubled.subscribe(() => {});
+        doubled.dispose();
+        ref = new WeakRef(doubled);
+      })();
+
+      await collectGarbage();
+
+      expect(ref?.deref()).toBeUndefined();
+    });
   });
 });
