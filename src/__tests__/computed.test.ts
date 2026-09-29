@@ -124,6 +124,19 @@ describe('computed()', () => {
     expect(callback).toHaveBeenCalledWith(14);
   });
 
+  it('should not be affected by later changes to the sources array', () => {
+    const a = new SSignal(1);
+    const b = new SSignal(2);
+    const sources: SSignal<number>[] = [a, b];
+    const sum = computed(sources, (values) => values.reduce((acc, v) => acc + v, 0));
+
+    sources.push(new SSignal(100));
+    sources[0] = new SSignal(50);
+    a.value = 10;
+
+    expect(sum.value).toBe(12);
+  });
+
   describe('in-place mutations of a source', () => {
     it('should notify when the derived value is the mutated source itself', () => {
       const list = new SSignal<number[]>([]);

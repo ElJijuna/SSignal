@@ -654,3 +654,28 @@ describe('SSignal re-entrant updates', () => {
     expect(callback).toHaveBeenCalledWith(-1);
   });
 });
+
+describe('SSignal collection proxy methods', () => {
+  it('should return the same function for repeated method reads', () => {
+    const map = new SSignal(new Map<string, number>()).value;
+    const set = new SSignal(new Set<string>()).value;
+
+    expect(map.get).toBe(map.get);
+    expect(map.set).toBe(map.set);
+    expect(set.add).toBe(set.add);
+    expect(set.has).toBe(set.has);
+  });
+
+  it('should keep cached mutating methods reactive when called detached', () => {
+    const signal = new SSignal(new Set<string>());
+    const callback = jest.fn();
+    signal.subscribe(callback);
+
+    const { add } = signal.value;
+    add('a');
+    add('b');
+
+    expect(callback).toHaveBeenCalledTimes(2);
+    expect([...signal.value]).toEqual(['a', 'b']);
+  });
+});

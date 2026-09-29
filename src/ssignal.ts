@@ -248,41 +248,55 @@ export default class SSignal<T = unknown> extends EventTarget {
    * operation, keeping read methods working transparently.
    */
   #wrapCollection<C extends Map<unknown, unknown> | Set<unknown>>(original: C): C {
-    const mutatingMethods =
-      original instanceof Map ? ['set', 'delete', 'clear'] : ['add', 'delete', 'clear'];
+    const isMap = original instanceof Map;
+    const mutatingMethods = new Set<PropertyKey>(
+      isMap ? ['set', 'delete', 'clear'] : ['add', 'delete', 'clear'],
+    );
+    // Functions handed out per property, built once so repeated reads do not allocate.
+    const methodCache = new Map<PropertyKey, { method: unknown; wrapper: unknown }>();
+
+    const wrapMutation =
+      (prop: PropertyKey, method: (...args: unknown[]) => unknown) =>
+      (...args: unknown[]) => {
+        const sizeBefore = original.size;
+        const isMapSet = isMap && prop === 'set';
+        const hadKey = isMapSet && original.has(args[0]);
+        const previousEntry = hadKey ? (original as Map<unknown, unknown>).get(args[0]) : undefined;
+
+        const result = method.apply(original, args);
+
+        // Only notify when the collection actually changed: size moved, or Map.set() replaced a value.
+        const changed =
+          original.size !== sizeBefore || (hadKey && !Object.is(previousEntry, args[1]));
+
+        // Inside mutate(), the single event is dispatched when the mutator finishes.
+        if (changed && this.#mutateDepth === 0) {
+          this.#notify();
+        }
+
+        // Map.set() and Set.add() return the collection; hand back the proxy so chained calls stay reactive.
+        return result === original ? proxy : result;
+      };
 
     const proxy = new Proxy(original, {
       get: (target, prop) => {
         const value = Reflect.get(target, prop);
 
-        if (mutatingMethods.includes(String(prop))) {
-          return (...args: unknown[]) => {
-            const sizeBefore = target.size;
-            const isMapSet = target instanceof Map && prop === 'set';
-            const hadKey = isMapSet && target.has(args[0]);
-            const previousEntry = isMapSet ? target.get(args[0]) : undefined;
-
-            const result = (value as (...args: unknown[]) => unknown).apply(target, args);
-
-            // Only notify when the collection actually changed: size moved, or Map.set() replaced a value.
-            const changed =
-              target.size !== sizeBefore || (hadKey && !Object.is(previousEntry, args[1]));
-
-            // Inside mutate(), the single event is dispatched when the mutator finishes.
-            if (changed && this.#mutateDepth === 0) {
-              this.#notify();
-            }
-
-            // Map.set() and Set.add() return the collection; hand back the proxy so chained calls stay reactive.
-            return result === target ? proxy : result;
-          };
+        if (typeof value !== 'function') {
+          return value;
         }
 
-        if (typeof value === 'function') {
-          return value.bind(target);
+        const cached = methodCache.get(prop);
+        if (cached?.method === value) {
+          return cached.wrapper;
         }
 
-        return value;
+        const wrapper = mutatingMethods.has(prop)
+          ? wrapMutation(prop, value as (...args: unknown[]) => unknown)
+          : value.bind(target);
+        methodCache.set(prop, { method: value, wrapper });
+
+        return wrapper;
       },
     });
 

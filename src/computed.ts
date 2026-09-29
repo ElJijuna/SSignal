@@ -32,7 +32,9 @@ export class ComputedSignal<T> extends SSignal<T> {
   #listeners = new Set<EventListenerOrEventListenerObject>();
 
   /** @internal */
-  constructor(sources: readonly SSignal<unknown>[], fn: (...values: unknown[]) => T) {
+  constructor(sourceList: readonly SSignal<unknown>[], fn: (...values: unknown[]) => T) {
+    // Copied so later changes to the caller's array cannot desync values from subscriptions.
+    const sources = [...sourceList];
     const getValues = () => sources.map((s) => s.value);
     // Last value seen from each source, to tell in-place mutations apart from replacements.
     const sourceValues = getValues();

@@ -197,6 +197,8 @@ store.value.delete('a');    // logs: store changed, size: 1
 store.value.clear();        // logs: store changed, size: 0
 ```
 
+Only calls made through `signal.value` are tracked. The signal wraps the collection in a proxy, so if you keep the original `Map`/`Set` you passed in and mutate it directly, no event is fired. `Set` values work the same way with `add()`, `delete()` and `clear()`.
+
 ### Arrays and objects
 
 Arrays and plain objects are not wrapped, so in-place changes such as `push()` or `obj.x = 1` are not detected on their own. Use `mutate()`: it runs your changes and fires one change event at the end.
@@ -218,6 +220,8 @@ todos.mutate((list) => {
   list.push('ship it');
 }); // no log
 ```
+
+An assigned function is always treated as an updater. To store a function as the value, return it from one: `signal.value = () => handler`.
 
 ### Immediate mode
 
@@ -283,7 +287,7 @@ import SSignal, { computed } from 'ssignal';
 const price = new SSignal(100);
 const withTax = computed(price, (p) => p * 1.21);
 
-withTax.subscribe((v) => console.log('price with tax:', v));
+withTax.subscribe((v) => console.log('price with tax:', v), { immediate: true });
 // logs: price with tax: 121
 
 price.value = 200;
@@ -293,7 +297,7 @@ price.value = 200;
 const qty = new SSignal(3);
 const total = computed([price, qty], ([p, q]) => p * q);
 
-total.subscribe((v) => console.log('total:', v)); // logs: total: 600
+total.subscribe((v) => console.log('total:', v), { immediate: true }); // logs: total: 600
 qty.value = 5; // logs: total: 1000
 
 // computed signals are read-only
