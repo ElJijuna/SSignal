@@ -6,6 +6,8 @@ type ExtractValues<T extends readonly SSignal<unknown>[]> = {
 
 const parentValueDescriptor = Object.getOwnPropertyDescriptor(SSignal.prototype, 'value');
 
+// Defensive: only reachable if SSignal loses its value setter.
+/* istanbul ignore next */
 if (!parentValueDescriptor?.set) {
   throw new TypeError('SSignal value setter is not available.');
 }
@@ -57,6 +59,8 @@ export class ComputedSignal<T> extends SSignal<T> {
         sourceValues[index] = value;
 
         const self = retainer.self ?? selfRef.deref();
+        // Collected but not finalized yet: the registry will unsubscribe shortly. Not reproducible in tests.
+        /* istanbul ignore next */
         if (!self) {
           return;
         }

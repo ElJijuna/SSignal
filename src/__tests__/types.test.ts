@@ -1,4 +1,6 @@
 import SSignal, {
+  ComputedSignal,
+  computed,
   type OnceOptions,
   type SSignalOptions,
   type SubscribeOptions,
@@ -40,5 +42,11 @@ describe('exported types', () => {
     signal.value = 0.5;
 
     expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should expose ComputedSignal from the package entry', () => {
+    const doubled = computed(new SSignal(2), (n) => n * 2);
+
+    expect(doubled).toBeInstanceOf(ComputedSignal);
   });
 });

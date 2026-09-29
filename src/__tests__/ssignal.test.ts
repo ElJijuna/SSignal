@@ -679,3 +679,22 @@ describe('SSignal collection proxy methods', () => {
     expect([...signal.value]).toEqual(['a', 'b']);
   });
 });
+
+describe('SSignal already-aborted subscriptions', () => {
+  it('should return a harmless unsubscribe from subscribe() and once()', () => {
+    const signal = new SSignal(0);
+    const controller = new AbortController();
+    controller.abort();
+    const callback = jest.fn();
+
+    const unsubscribe = signal.subscribe(callback, { signal: controller.signal });
+    const cancelOnce = signal.once(callback, { signal: controller.signal });
+
+    expect(() => {
+      unsubscribe();
+      cancelOnce();
+    }).not.toThrow();
+    signal.value = 1;
+    expect(callback).not.toHaveBeenCalled();
+  });
+});

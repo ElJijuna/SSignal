@@ -249,6 +249,40 @@ describe('computed()', () => {
       expect(callback).toHaveBeenCalledWith(4);
     });
 
+    it('should stay alive while at least one subscription remains', async () => {
+      const count = new SSignal(1);
+      const callback = jest.fn();
+
+      (() => {
+        const doubled = computed(count, (n) => n * 2);
+        const unsubscribe = doubled.subscribe(() => {});
+        doubled.subscribe(callback);
+        unsubscribe();
+      })();
+
+      await collectGarbage();
+      count.value = 2;
+
+      expect(callback).toHaveBeenCalledWith(4);
+    });
+
+    it('should not be kept alive by listeners of other event types', async () => {
+      const count = new SSignal(1);
+      const listener = () => {};
+      let ref: WeakRef<ComputedSignal<number>>;
+
+      (() => {
+        const doubled = computed(count, (n) => n * 2);
+        doubled.addEventListener('other', listener);
+        doubled.removeEventListener('other', listener);
+        ref = new WeakRef(doubled);
+      })();
+
+      await collectGarbage();
+
+      expect(ref?.deref()).toBeUndefined();
+    });
+
     it('should allow collection once every subscription is removed', async () => {
       const count = new SSignal(1);
       let ref: WeakRef<ComputedSignal<number>>;

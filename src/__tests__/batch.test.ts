@@ -141,4 +141,23 @@ describe('batch()', () => {
 
     expect(callback).toHaveBeenCalledTimes(2);
   });
+
+  it('should notify every batched signal and rethrow the first flush error', () => {
+    const looping = new SSignal(0);
+    const other = new SSignal(0);
+    const callback = jest.fn();
+    looping.subscribe(() => {
+      looping.value = (n) => n + 1;
+    });
+    other.subscribe(callback);
+
+    expect(() =>
+      batch(() => {
+        looping.value = 1;
+        other.value = 1;
+      }),
+    ).toThrow(/update loop/i);
+
+    expect(callback).toHaveBeenCalledWith(1);
+  });
 });
