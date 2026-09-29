@@ -1,3 +1,10 @@
+## [1.9.1](https://github.com/ElJijuna/ssignal/compare/v1.9.0...v1.9.1) (2026-09-29)
+
+
+### Performance Improvements
+
+* enhance computed signals and effect handling in batch operations ([d471a0d](https://github.com/ElJijuna/ssignal/commit/d471a0d0b36ae4d91993a6662a62d2ed9648f203))
+
 # [1.9.0](https://github.com/ElJijuna/ssignal/compare/v1.8.0...v1.9.0) (2026-09-29)
 
 
