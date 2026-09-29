@@ -55,9 +55,18 @@ export default class SSignal<T = unknown> extends EventTarget {
   #mutateDepth = 0;
   #dispatching = false;
   #pending = false;
+  // Unsubscribe functions of the live subscribe()/once() subscriptions, for dispose().
+  #subscriptions = new Set<Unsubscribe>();
 
   static {
     notify = (signal) => signal.#notify();
+
+    // Symbol.dispose is missing on older runtimes (e.g. Node < 18.18); `using` needs it anyway.
+    if (typeof Symbol.dispose === 'symbol') {
+      SSignal.prototype[Symbol.dispose] = function (this: SSignal<unknown>) {
+        this.dispose();
+      };
+    }
   }
 
   /**
@@ -176,9 +185,11 @@ export default class SSignal<T = unknown> extends EventTarget {
     this.addEventListener('change', handler);
 
     const unsubscribe = () => {
+      this.#subscriptions.delete(unsubscribe);
       this.removeEventListener('change', handler);
       options?.signal?.removeEventListener('abort', unsubscribe);
     };
+    this.#subscriptions.add(unsubscribe);
 
     if (options?.signal) {
       options.signal.addEventListener('abort', unsubscribe, { once: true });
@@ -221,6 +232,7 @@ export default class SSignal<T = unknown> extends EventTarget {
       }
 
       active = false;
+      this.#subscriptions.delete(unsubscribe);
       this.removeEventListener('change', handler);
       options?.signal?.removeEventListener('abort', unsubscribe);
     };
@@ -231,6 +243,7 @@ export default class SSignal<T = unknown> extends EventTarget {
     };
 
     this.addEventListener('change', handler);
+    this.#subscriptions.add(unsubscribe);
 
     if (options?.signal) {
       options.signal.addEventListener('abort', unsubscribe, { once: true });
@@ -238,6 +251,29 @@ export default class SSignal<T = unknown> extends EventTarget {
 
     return unsubscribe;
   }
+
+  /**
+   * Removes every subscription made with `subscribe()` or `once()`, including their
+   * AbortSignal listeners. Listeners added directly with `addEventListener` are not tracked
+   * and stay registered. The signal remains usable: it can still be read, set and subscribed to.
+   * Calling it more than once has no effect.
+   *
+   * Also available as `[Symbol.dispose]()`, so a signal can be declared with `using`.
+   *
+   * @example
+   * {
+   *   using count = new SSignal(0);
+   *   count.subscribe(render);
+   * } // subscriptions removed here
+   */
+  dispose(): void {
+    for (const unsubscribe of [...this.#subscriptions]) {
+      unsubscribe();
+    }
+  }
+
+  /** Same as `dispose()`, for `using` declarations. */
+  declare [Symbol.dispose]: () => void;
 
   /**
    * Dispatches a change event with the current value. Inside `batch()` the signal is queued

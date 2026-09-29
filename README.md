@@ -31,6 +31,7 @@ A lightweight, zero-dependency reactive signal built on top of the native `Event
 - **Computed signals** — derive read-only signals from one or more sources with `computed()`.
 - **Custom equality** — `{ equals }` decides when an assigned value counts as a change.
 - **Batched updates** — `batch()` groups several changes into one notification per signal.
+- **Disposable** — `dispose()` removes every subscription at once, and signals work with `using`.
 - **AbortSignal integration** — cancel subscriptions with a standard `AbortController`.
 - **TypeScript-first** — fully typed, zero `any` in the public API.
 - **Tree-shakeable** — `sideEffects: false`, ships ESM + CJS + UMD.
@@ -59,7 +60,8 @@ npm install ssignal
 | `signal.once(callback, options?)` | Registers a listener called only on the next change, then unsubscribes automatically. Returns an `Unsubscribe` function. Options: `OnceOptions`. |
 | `computed(source, fn, options?)` | Creates a read-only `ComputedSignal` derived from one source. Accepts the same `equals` option. |
 | `computed([...sources], fn, options?)` | Creates a read-only `ComputedSignal` derived from multiple sources. Accepts the same `equals` option. |
-| `computed.dispose()` | Removes all source subscriptions. Call when the signal is no longer needed. |
+| `signal.dispose()` | Removes every `subscribe()`/`once()` subscription at once. The signal stays usable. Also available as `[Symbol.dispose]()` for `using`. |
+| `computed.dispose()` | Removes all source subscriptions and its own subscribers. Call when the signal is no longer needed. |
 | `batch(fn)` | Runs `fn` and defers change events until it returns, so each changed signal notifies once with its final value. Returns what `fn` returns. |
 
 ### Types
@@ -417,6 +419,31 @@ batch(() => {
 ```
 
 Values change immediately inside `batch()`; only the events wait. When a listener changes the signal it is listening to, the new value is delivered in a follow-up round after every listener has seen the current one, so all listeners finish on the latest value.
+
+### Disposing subscriptions
+
+`dispose()` removes every subscription made with `subscribe()` or `once()` in one call, without keeping each unsubscribe function around. The signal can still be read, set and subscribed to afterwards.
+
+```ts
+import SSignal from 'ssignal';
+
+const status = new SSignal('idle');
+status.subscribe(render);
+status.subscribe(log);
+
+status.dispose(); // both listeners removed
+```
+
+Signals also implement `Symbol.dispose`, so a `using` declaration cleans them up when the block ends:
+
+```ts
+{
+  using status = new SSignal('idle');
+  status.subscribe(render);
+} // status.dispose() runs here
+```
+
+Listeners added directly with `addEventListener` are not tracked by `dispose()`. `using` needs TypeScript 5.2+ and a runtime with `Symbol.dispose` (Node 18.18+, recent browsers).
 
 ### AbortController
 

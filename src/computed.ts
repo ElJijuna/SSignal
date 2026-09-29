@@ -131,11 +131,13 @@ export class ComputedSignal<T> extends SSignal<T> {
   }
 
   /**
-   * Removes all subscriptions to source signals.
-   * Call this when the computed signal is no longer needed to free memory.
+   * Removes all subscriptions to source signals and every `subscribe()`/`once()` listener of
+   * this signal. Call this when the computed signal is no longer needed to free memory.
+   * Also runs at the end of a `using` block.
    */
-  dispose(): void {
+  override dispose(): void {
     registry.unregister(this);
+    super.dispose();
     this.#listeners.clear();
     this.#dispose();
   }
