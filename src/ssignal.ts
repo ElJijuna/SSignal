@@ -11,9 +11,24 @@
  * count.value = 1;        // logs: 1
  * count.value = (n) => n + 1; // logs: 2
  */
+/** Maximum dispatch rounds a signal runs when its listeners keep updating it. */
+const MAX_DISPATCH_ROUNDS = 100;
+
+let batchDepth = 0;
+const batchedSignals = new Set<SSignal<unknown>>();
+
+/** @internal Dispatches a change event for `signal`, honoring batching and re-entrancy. */
+export let notify: (signal: SSignal<unknown>) => void;
+
 export default class SSignal<T = unknown> extends EventTarget {
   #value: T;
   #mutateDepth = 0;
+  #dispatching = false;
+  #pending = false;
+
+  static {
+    notify = (signal) => signal.#notify();
+  }
 
   /**
    * Creates a new SSignal instance.
@@ -58,7 +73,7 @@ export default class SSignal<T = unknown> extends EventTarget {
       nextValue instanceof Map || nextValue instanceof Set
         ? (this.#wrapCollection(nextValue) as T)
         : nextValue;
-    this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
+    this.#notify();
   }
 
   /**
@@ -93,7 +108,7 @@ export default class SSignal<T = unknown> extends EventTarget {
       this.#mutateDepth--;
 
       if (this.#mutateDepth === 0 && !skip) {
-        this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
+        this.#notify();
       }
     }
   }
@@ -191,6 +206,44 @@ export default class SSignal<T = unknown> extends EventTarget {
   }
 
   /**
+   * Dispatches a change event with the current value. Inside `batch()` the signal is queued
+   * instead. Changes made by listeners while an event is being dispatched are not dispatched
+   * nested: once the current round reaches every listener, one more round runs with the latest
+   * value, so listeners always see changes in order and finish on the current value.
+   */
+  #notify(): void {
+    if (batchDepth > 0) {
+      batchedSignals.add(this);
+      return;
+    }
+
+    if (this.#dispatching) {
+      this.#pending = true;
+      return;
+    }
+
+    this.#dispatching = true;
+
+    try {
+      let rounds = 0;
+
+      do {
+        if (++rounds > MAX_DISPATCH_ROUNDS) {
+          throw new Error(
+            `SSignal update loop: listeners kept changing the value for ${MAX_DISPATCH_ROUNDS} rounds.`,
+          );
+        }
+
+        this.#pending = false;
+        this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
+      } while (this.#pending);
+    } finally {
+      this.#dispatching = false;
+      this.#pending = false;
+    }
+  }
+
+  /**
    * Wraps a Map or Set in a Proxy that dispatches a change event after any mutating
    * operation, keeping read methods working transparently.
    */
@@ -217,7 +270,7 @@ export default class SSignal<T = unknown> extends EventTarget {
 
             // Inside mutate(), the single event is dispatched when the mutator finishes.
             if (changed && this.#mutateDepth === 0) {
-              this.dispatchEvent(new CustomEvent<T>('change', { detail: this.#value }));
+              this.#notify();
             }
 
             // Map.set() and Set.add() return the collection; hand back the proxy so chained calls stay reactive.
@@ -234,5 +287,60 @@ export default class SSignal<T = unknown> extends EventTarget {
     });
 
     return proxy;
+  }
+}
+
+/**
+ * Runs `fn` and defers every change notification until it returns, so each signal changed
+ * inside notifies once, with its final value. Nested batches flush when the outermost ends.
+ * Values are updated immediately; only the events wait. If `fn` throws, pending notifications
+ * are still delivered and the error is rethrown.
+ *
+ * @param fn - Function that updates one or more signals.
+ * @returns The value returned by `fn`.
+ *
+ * @example
+ * batch(() => {
+ *   price.value = 200;
+ *   qty.value = 3;
+ * }); // computed([price, qty], ...) recomputes once
+ */
+export function batch<R>(fn: () => R): R {
+  batchDepth++;
+
+  try {
+    return fn();
+  } finally {
+    batchDepth--;
+
+    if (batchDepth === 0) {
+      flushBatch();
+    }
+  }
+}
+
+function flushBatch(): void {
+  let error: unknown;
+  let failed = false;
+
+  // Listeners may change further signals while flushing; keep going until the queue is empty.
+  while (batchedSignals.size > 0) {
+    const signals = [...batchedSignals];
+    batchedSignals.clear();
+
+    for (const signal of signals) {
+      try {
+        notify(signal);
+      } catch (err) {
+        if (!failed) {
+          failed = true;
+          error = err;
+        }
+      }
+    }
+  }
+
+  if (failed) {
+    throw error;
   }
 }

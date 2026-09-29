@@ -29,6 +29,7 @@ A lightweight, zero-dependency reactive signal built on top of the native `Event
 - **Immediate mode** — `{ immediate: true }` fires the callback with the current value on subscribe.
 - **One-time subscriptions** — `once()` listens for the next change only, then unsubscribes itself.
 - **Computed signals** — derive read-only signals from one or more sources with `computed()`.
+- **Batched updates** — `batch()` groups several changes into one notification per signal.
 - **AbortSignal integration** — cancel subscriptions with a standard `AbortController`.
 - **TypeScript-first** — fully typed, zero `any` in the public API.
 - **Tree-shakeable** — `sideEffects: false`, ships ESM + CJS + UMD.
@@ -58,6 +59,7 @@ npm install ssignal
 | `computed(source, fn)` | Creates a read-only `ComputedSignal` derived from one source. |
 | `computed([...sources], fn)` | Creates a read-only `ComputedSignal` derived from multiple sources. |
 | `computed.dispose()` | Removes all source subscriptions. Call when the signal is no longer needed. |
+| `batch(fn)` | Runs `fn` and defers change events until it returns, so each changed signal notifies once with its final value. Returns what `fn` returns. |
 
 ### Events
 
@@ -310,6 +312,25 @@ const list = computed(todos, (items) => items);
 list.subscribe((items) => console.log(items.length));
 todos.mutate((items) => items.push('write docs')); // logs: 1
 ```
+
+### Batched updates
+
+```ts
+import SSignal, { batch, computed } from 'ssignal';
+
+const price = new SSignal(100);
+const qty = new SSignal(1);
+const total = computed([price, qty], ([p, q]) => p * q);
+
+total.subscribe((v) => console.log('total:', v));
+
+batch(() => {
+  price.value = 200;
+  qty.value = 3;
+}); // logs once: total: 600
+```
+
+Values change immediately inside `batch()`; only the events wait. When a listener changes the signal it is listening to, the new value is delivered in a follow-up round after every listener has seen the current one, so all listeners finish on the latest value.
 
 ### AbortController
 

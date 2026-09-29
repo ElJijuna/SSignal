@@ -565,3 +565,92 @@ describe('SSignal.mutate()', () => {
     expect(structuredClone(signal.value)).toEqual({ items: [1, 2] });
   });
 });
+
+describe('SSignal re-entrant updates', () => {
+  it('should deliver the latest value last to every listener when a listener updates the signal', () => {
+    const signal = new SSignal(0);
+    const received: number[] = [];
+
+    signal.subscribe((v) => {
+      if (v === 1) {
+        signal.value = 2;
+      }
+    });
+    signal.subscribe((v) => received.push(v));
+
+    signal.value = 1;
+
+    expect(signal.value).toBe(2);
+    expect(received).toEqual([1, 2]);
+  });
+
+  it('should coalesce several updates made during the same dispatch', () => {
+    const signal = new SSignal(0);
+    const received: number[] = [];
+
+    signal.subscribe((v) => {
+      if (v === 1) {
+        signal.value = 2;
+        signal.value = 3;
+      }
+    });
+    signal.subscribe((v) => received.push(v));
+
+    signal.value = 1;
+
+    expect(received).toEqual([1, 3]);
+  });
+
+  it('should queue in-place mutations made during a dispatch', () => {
+    const signal = new SSignal<number[]>([]);
+    const lengths: number[] = [];
+
+    signal.subscribe((items) => {
+      if (items.length === 1) {
+        signal.mutate((list) => list.push(2));
+      }
+    });
+    signal.subscribe((items) => lengths.push(items.length));
+
+    signal.mutate((list) => list.push(1));
+
+    // Same array in both rounds: it already holds the queued push when the second listener reads it.
+    expect(lengths).toEqual([2, 2]);
+    expect(signal.value).toEqual([1, 2]);
+  });
+
+  it('should throw instead of looping forever when listeners keep updating the signal', () => {
+    const signal = new SSignal(0);
+
+    signal.subscribe(() => {
+      signal.value = (n) => n + 1;
+    });
+
+    expect(() => {
+      signal.value = 1;
+    }).toThrow(/update loop/i);
+  });
+
+  it('should keep working after an update loop error', () => {
+    const signal = new SSignal(0);
+    let looping = true;
+    const callback = jest.fn();
+
+    signal.subscribe(() => {
+      if (looping) {
+        signal.value = (n) => n + 1;
+      }
+    });
+
+    expect(() => {
+      signal.value = 1;
+    }).toThrow();
+
+    looping = false;
+    signal.subscribe(callback);
+    signal.value = -1;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith(-1);
+  });
+});

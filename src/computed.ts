@@ -1,4 +1,4 @@
-import SSignal from './ssignal';
+import SSignal, { notify } from './ssignal';
 
 type ExtractValues<T extends readonly SSignal<unknown>[]> = {
   [K in keyof T]: T[K] extends SSignal<infer V> ? V : never;
@@ -60,7 +60,7 @@ export class ComputedSignal<T> extends SSignal<T> {
         // The derived object may be (or be reachable from) what was mutated, so an equal
         // reference does not mean it is unchanged: notify instead of letting the setter skip it.
         if (mutatedInPlace && isObject(nextValue) && Object.is(nextValue, self.value)) {
-          self.dispatchEvent(new CustomEvent<T>('change', { detail: nextValue }));
+          notify(self);
         } else {
           parentSetter.call(self, nextValue);
         }
