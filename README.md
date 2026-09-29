@@ -122,21 +122,39 @@ flowchart TD
   pending -. "once every listener has run" .-> dispatch
 
   dispatch --> subscribe["subscribe() listeners"]
-  dispatch --> once["once() listeners"]
-  dispatch --> computed
+  dispatch --> once["once() listeners<br/>removed after first call"]
+  dispatch --> recompute
+  dispatch --> changed
 
   subgraph computed["ComputedSignal (read-only)"]
     recompute["fn(...source values)"]
+    recompute -- "source mutated in place,<br/>same object returned" --> notify2["#notify() of the computed"]
+    recompute -- "otherwise" --> equals2["equals check of the computed"]
   end
 
-  recompute -- "source mutated in place,<br/>same object returned" --> notify2["#notify() of the computed"]
-  recompute -- "otherwise" --> equals2["equals check of the computed"]
+  subgraph effects["effect()"]
+    changed{"new values or<br/>in-place mutation?"}
+    changed -- "yes" --> rerun["previous cleanup,<br/>then fn(values)"]
+    changed -- "no, e.g. second source<br/>of the same batch" --> noRun(["skipped"])
+  end
+
+  subgraph teardown["Removing subscriptions"]
+    disposeAll["signal.dispose()<br/>or end of a using block"]
+    single["unsubscribe()<br/>or AbortSignal abort"]
+  end
+
+  disposeAll -. "removes all" .-> subscribe
+  disposeAll -. "removes all" .-> once
+  single -. "removes one" .-> subscribe
 ```
 
 - **`SSignal`** extends the native `EventTarget`. Every change ends in a single private `#notify()`, which dispatches a `change` event whose `detail` is the current value.
 - **Writes** come from three places: assignments (filtered by `equals`), `mutate()`, and the Map/Set proxy, which only notifies when the collection actually changed. Inside `mutate()`, Map/Set changes are folded into its single event.
 - **`#notify()`** queues the signal while a `batch()` is running, so it notifies once when the batch ends. If a listener changes the signal during a dispatch, the change is delivered in a follow-up round rather than a nested one, so every listener ends on the latest value.
-- **`ComputedSignal`** subscribes to its sources and re-runs `fn` on each change, then goes through its own `equals` check. It holds its sources through a `WeakRef`, but stays alive while it has listeners, and `dispose()` removes its source subscriptions.
+- **Consumers** all listen to that event: `subscribe()` and `once()` callbacks, `ComputedSignal`, and `effect()`.
+- **`ComputedSignal`** re-runs `fn` on each source change, then goes through its own `equals` check, or notifies directly after an in-place mutation. Its sources reference it only through a `WeakRef`, but it stays alive while it has listeners. `dispose()` removes its source subscriptions and its own subscribers.
+- **`effect()`** runs the previous cleanup and then `fn` whenever its sources bring new values or were mutated in place, and skips notifications that bring nothing new, so several sources changed in one `batch()` cause a single run. Its dispose function stops it and runs the last cleanup.
+- **Teardown**: `unsubscribe()` or an `AbortSignal` removes one subscription, while `dispose()` (also called at the end of a `using` block) removes every `subscribe()`/`once()` subscription of a signal at once.
 
 ## Usage examples
 
