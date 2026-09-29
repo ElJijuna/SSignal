@@ -1,3 +1,22 @@
+/** Maximum dispatch rounds a signal runs when its listeners keep updating it. */
+const MAX_DISPATCH_ROUNDS = 100;
+
+let batchDepth = 0;
+const batchedSignals = new Set<SSignal<unknown>>();
+
+/** @internal Dispatches a change event for `signal`, honoring batching and re-entrancy. */
+export let notify: (signal: SSignal<unknown>) => void;
+
+/** Options accepted by the `SSignal` constructor and `computed()`. */
+export type SSignalOptions<T> = {
+  /**
+   * Decides whether a newly assigned value is equal to the current one. When it returns
+   * `true` the assignment is ignored and no event is dispatched. Defaults to `Object.is`.
+   * It is not consulted for `mutate()` or Map/Set mutations, which keep the same reference.
+   */
+  equals?: (prev: T, next: T) => boolean;
+};
+
 /**
  * A reactive signal that extends EventTarget to provide observable state management.
  * Supports any value type, including reactive Map and Set instances that emit change
@@ -10,18 +29,15 @@
  * count.subscribe((value) => console.log(value));
  * count.value = 1;        // logs: 1
  * count.value = (n) => n + 1; // logs: 2
+ *
+ * @example
+ * // Skip updates that are equal by content
+ * const point = new SSignal({ x: 0, y: 0 }, { equals: (a, b) => a.x === b.x && a.y === b.y });
  */
-/** Maximum dispatch rounds a signal runs when its listeners keep updating it. */
-const MAX_DISPATCH_ROUNDS = 100;
-
-let batchDepth = 0;
-const batchedSignals = new Set<SSignal<unknown>>();
-
-/** @internal Dispatches a change event for `signal`, honoring batching and re-entrancy. */
-export let notify: (signal: SSignal<unknown>) => void;
-
 export default class SSignal<T = unknown> extends EventTarget {
   #value: T;
+  // Typed loosely so T stays covariant: SSignal<number> must remain assignable to SSignal<unknown>.
+  #equals: (prev: unknown, next: unknown) => boolean;
   #mutateDepth = 0;
   #dispatching = false;
   #pending = false;
@@ -36,9 +52,11 @@ export default class SSignal<T = unknown> extends EventTarget {
    * dispatches change events on mutating calls.
    *
    * @param value - The initial value of the signal.
+   * @param options.equals - Custom equality check for assignments. Defaults to `Object.is`.
    */
-  constructor(value: T) {
+  constructor(value: T, options?: SSignalOptions<T>) {
     super();
+    this.#equals = (options?.equals ?? Object.is) as (prev: unknown, next: unknown) => boolean;
 
     if (value instanceof Map || value instanceof Set) {
       this.#value = this.#wrapCollection(value) as T;
@@ -57,7 +75,8 @@ export default class SSignal<T = unknown> extends EventTarget {
   /**
    * Sets a new value for the signal. Accepts either a direct value or an updater
    * function that receives the previous value and returns the next one.
-   * No event is dispatched when the new value is strictly equal to the current one.
+   * No event is dispatched when the new value is equal to the current one, according to
+   * the `equals` option (`Object.is` by default).
    *
    * @param newValue - The next value, or a function `(prev: T) => T`.
    */
@@ -65,7 +84,7 @@ export default class SSignal<T = unknown> extends EventTarget {
     const nextValue =
       typeof newValue === 'function' ? (newValue as (prev: T) => T)(this.#value) : newValue;
 
-    if (Object.is(nextValue, this.#value)) {
+    if (this.#equals(this.#value, nextValue)) {
       return;
     }
 

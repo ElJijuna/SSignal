@@ -29,6 +29,7 @@ A lightweight, zero-dependency reactive signal built on top of the native `Event
 - **Immediate mode** — `{ immediate: true }` fires the callback with the current value on subscribe.
 - **One-time subscriptions** — `once()` listens for the next change only, then unsubscribes itself.
 - **Computed signals** — derive read-only signals from one or more sources with `computed()`.
+- **Custom equality** — `{ equals }` decides when an assigned value counts as a change.
 - **Batched updates** — `batch()` groups several changes into one notification per signal.
 - **AbortSignal integration** — cancel subscriptions with a standard `AbortController`.
 - **TypeScript-first** — fully typed, zero `any` in the public API.
@@ -50,14 +51,14 @@ npm install ssignal
 
 | Member | Description |
 | :----- | :---------- |
-| `new SSignal(value: T)` | Creates a signal. `Map` values are automatically wrapped in a reactive proxy. |
+| `new SSignal(value: T, options?)` | Creates a signal. `Map` values are automatically wrapped in a reactive proxy. Options: `{ equals?: (prev: T, next: T) => boolean }`. |
 | `signal.value` | Gets the current value. |
 | `signal.value = newValue \| (prev: T) => T` | Sets a new value. Accepts a direct value or an updater function. No event is fired when the value does not change. |
 | `signal.mutate(mutator)` | Mutates the value in place (arrays, objects…) and fires one change event afterwards. Return `false` from the mutator to skip the event. Throws on computed signals. |
 | `signal.subscribe(callback, options?)` | Registers a listener called on every change. Returns an unsubscribe function. Options: `{ signal?: AbortSignal, immediate?: boolean }`. |
 | `signal.once(callback, options?)` | Registers a listener called only on the next change, then unsubscribes automatically. Returns an unsubscribe function. Options: `{ signal?: AbortSignal }`. |
-| `computed(source, fn)` | Creates a read-only `ComputedSignal` derived from one source. |
-| `computed([...sources], fn)` | Creates a read-only `ComputedSignal` derived from multiple sources. |
+| `computed(source, fn, options?)` | Creates a read-only `ComputedSignal` derived from one source. Accepts the same `equals` option. |
+| `computed([...sources], fn, options?)` | Creates a read-only `ComputedSignal` derived from multiple sources. Accepts the same `equals` option. |
 | `computed.dispose()` | Removes all source subscriptions. Call when the signal is no longer needed. |
 | `batch(fn)` | Runs `fn` and defers change events until it returns, so each changed signal notifies once with its final value. Returns what `fn` returns. |
 
@@ -66,6 +67,47 @@ npm install ssignal
 | Event | Type | Description |
 | :---- | :--- | :---------- |
 | `change` | `CustomEvent<T>` | Fired when the value changes. The new value is available as `event.detail`. |
+
+## Architecture
+
+```mermaid
+flowchart TD
+  subgraph writes["Ways to change a signal"]
+    set["signal.value = next<br/>or (prev) => next"]
+    mutate["signal.mutate(fn)"]
+    coll["Map / Set proxy<br/>set · add · delete · clear"]
+  end
+
+  set --> equals{"equals(prev, next)?<br/>default Object.is"}
+  equals -- "equal" --> skip(["ignored, no event"])
+  equals -- "changed" --> notify
+  mutate -- "unless fn returns false" --> notify
+  coll -- "only if it really changed" --> notify
+
+  notify["#notify()"] --> inBatch{"inside batch()?"}
+  inBatch -- "yes" --> queue[("batch queue<br/>one entry per signal")]
+  queue -- "outermost batch ends" --> notify
+  inBatch -- "no" --> dispatching{"already dispatching?"}
+  dispatching -- "yes" --> pending["mark pending<br/>(new round after the current one)"]
+  dispatching -- "no" --> dispatch["EventTarget.dispatchEvent<br/>CustomEvent('change')"]
+  pending -. "once every listener has run" .-> dispatch
+
+  dispatch --> subscribe["subscribe() listeners"]
+  dispatch --> once["once() listeners"]
+  dispatch --> computed
+
+  subgraph computed["ComputedSignal (read-only)"]
+    recompute["fn(...source values)"]
+  end
+
+  recompute -- "source mutated in place,<br/>same object returned" --> notify2["#notify() of the computed"]
+  recompute -- "otherwise" --> equals2["equals check of the computed"]
+```
+
+- **`SSignal`** extends the native `EventTarget`. Every change ends in a single private `#notify()`, which dispatches a `change` event whose `detail` is the current value.
+- **Writes** come from three places: assignments (filtered by `equals`), `mutate()`, and the Map/Set proxy, which only notifies when the collection actually changed. Inside `mutate()`, Map/Set changes are folded into its single event.
+- **`#notify()`** queues the signal while a `batch()` is running, so it notifies once when the batch ends. If a listener changes the signal during a dispatch, the change is delivered in a follow-up round rather than a nested one, so every listener ends on the latest value.
+- **`ComputedSignal`** subscribes to its sources and re-runs `fn` on each change, then goes through its own `equals` check. It holds its sources through a `WeakRef`, but stays alive while it has listeners, and `dispose()` removes its source subscriptions.
 
 ## Usage examples
 
@@ -316,6 +358,31 @@ const list = computed(todos, (items) => items);
 list.subscribe((items) => console.log(items.length));
 todos.mutate((items) => items.push('write docs')); // logs: 1
 ```
+
+### Custom equality
+
+By default an assignment is ignored when `Object.is(prev, next)` is true. Pass `equals` to compare by content instead, for example when you always build new objects:
+
+```ts
+import SSignal, { computed } from 'ssignal';
+
+const samePoint = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  a.x === b.x && a.y === b.y;
+
+const point = new SSignal({ x: 0, y: 0 }, { equals: samePoint });
+point.subscribe((p) => console.log('moved to', p));
+
+point.value = { x: 0, y: 0 }; // no log, equal by content
+point.value = { x: 1, y: 0 }; // logs: moved to { x: 1, y: 0 }
+
+// Also on computed signals
+const size = new SSignal({ width: 1920, height: 1080 });
+const orientation = computed(size, (s) => ({ landscape: s.width > s.height }), {
+  equals: (a, b) => a.landscape === b.landscape,
+});
+```
+
+Return `false` to notify on every assignment. `equals` is not consulted by `mutate()` or Map/Set mutations, since the reference does not change.
 
 ### Batched updates
 

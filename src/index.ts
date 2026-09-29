@@ -1,2 +1,2 @@
 export { ComputedSignal, computed } from './computed';
-export { batch, default } from './ssignal';
+export { batch, default, type SSignalOptions } from './ssignal';

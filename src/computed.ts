@@ -1,4 +1,4 @@
-import SSignal, { notify } from './ssignal';
+import SSignal, { notify, type SSignalOptions } from './ssignal';
 
 type ExtractValues<T extends readonly SSignal<unknown>[]> = {
   [K in keyof T]: T[K] extends SSignal<infer V> ? V : never;
@@ -32,13 +32,17 @@ export class ComputedSignal<T> extends SSignal<T> {
   #listeners = new Set<EventListenerOrEventListenerObject>();
 
   /** @internal */
-  constructor(sourceList: readonly SSignal<unknown>[], fn: (...values: unknown[]) => T) {
+  constructor(
+    sourceList: readonly SSignal<unknown>[],
+    fn: (...values: unknown[]) => T,
+    options?: SSignalOptions<T>,
+  ) {
     // Copied so later changes to the caller's array cannot desync values from subscriptions.
     const sources = [...sourceList];
     const getValues = () => sources.map((s) => s.value);
     // Last value seen from each source, to tell in-place mutations apart from replacements.
     const sourceValues = getValues();
-    super(fn(...sourceValues));
+    super(fn(...sourceValues), options);
 
     const selfRef = new WeakRef(this);
     // Holds a strong reference from the source subscriptions while this signal has listeners,
@@ -138,44 +142,56 @@ export class ComputedSignal<T> extends SSignal<T> {
  *
  * @param source - The source signal to derive from.
  * @param fn - A function that receives the source value and returns the derived value.
+ * @param options.equals - Custom equality check for derived values. Defaults to `Object.is`.
  * @returns A `ComputedSignal` that updates whenever the source changes.
  *
  * @example
  * const count = new SSignal(5);
  * const doubled = computed(count, (n) => n * 2);
- * doubled.subscribe((v) => console.log(v)); // logs: 10
+ * doubled.subscribe((v) => console.log(v), { immediate: true }); // logs: 10
  * count.value = 10; // logs: 20
  */
-export function computed<T, R>(source: SSignal<T>, fn: (value: T) => R): ComputedSignal<R>;
+export function computed<T, R>(
+  source: SSignal<T>,
+  fn: (value: T) => R,
+  options?: SSignalOptions<R>,
+): ComputedSignal<R>;
 
 /**
  * Creates a read-only signal whose value is derived from multiple source signals.
  *
  * @param sources - Tuple of source signals to derive from.
  * @param fn - A function that receives the current values of all sources as a tuple.
+ * @param options.equals - Custom equality check for derived values. Defaults to `Object.is`.
  * @returns A `ComputedSignal` that updates whenever any source changes.
  *
  * @example
  * const price = new SSignal(100);
  * const qty   = new SSignal(3);
  * const total = computed([price, qty], ([p, q]) => p * q);
- * total.subscribe((v) => console.log(v)); // logs: 300
+ * total.subscribe((v) => console.log(v), { immediate: true }); // logs: 300
  * price.value = 200; // logs: 600
  */
 export function computed<Sources extends readonly SSignal<unknown>[], R>(
   sources: [...Sources],
   fn: (values: ExtractValues<Sources>) => R,
+  options?: SSignalOptions<R>,
 ): ComputedSignal<R>;
 
 export function computed<R>(
   sourceOrSources: SSignal<unknown> | readonly SSignal<unknown>[],
   fn: (...args: never[]) => R,
+  options?: SSignalOptions<R>,
 ): ComputedSignal<R> {
   const computeValue = fn as (valueOrValues: unknown) => R;
 
   if (sourceOrSources instanceof SSignal) {
-    return new ComputedSignal<R>([sourceOrSources], (v: unknown) => computeValue(v));
+    return new ComputedSignal<R>([sourceOrSources], (v: unknown) => computeValue(v), options);
   }
 
-  return new ComputedSignal<R>(sourceOrSources, (...values: unknown[]) => computeValue(values));
+  return new ComputedSignal<R>(
+    sourceOrSources,
+    (...values: unknown[]) => computeValue(values),
+    options,
+  );
 }
