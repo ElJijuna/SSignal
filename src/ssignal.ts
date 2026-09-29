@@ -18,8 +18,11 @@ export type SubscribeOptions = {
   immediate?: boolean;
 };
 
-/** Options accepted by `once()`. */
-export type OnceOptions = Pick<SubscribeOptions, 'signal'>;
+/**
+ * Options accepted by `once()`. With `immediate`, the callback runs right away with the
+ * current value and that counts as its single call, so no listener is registered.
+ */
+export type OnceOptions = SubscribeOptions;
 
 /** Options accepted by the `SSignal` constructor and `computed()`. */
 export type SSignalOptions<T> = {
@@ -213,14 +216,24 @@ export default class SSignal<T = unknown> extends EventTarget {
    *
    * @param callback - Function called with the new value on the next change.
    * @param options.signal - Optional AbortSignal to cancel the subscription.
+   * @param options.immediate - If true, calls the callback synchronously with the current value
+   * instead of waiting for the next change. That is its single call: no listener is registered.
    * @returns A function that removes the pending one-time subscription.
    *
    * @example
    * const unsubscribe = signal.once((v) => console.log('first change:', v));
    * unsubscribe(); // cancels if the signal has not changed yet
+   *
+   * @example
+   * signal.once((v) => init(v), { immediate: true }); // runs now with the current value, only once
    */
   once(callback: (value: T) => void, options?: OnceOptions): Unsubscribe {
     if (options?.signal?.aborted) {
+      return () => {};
+    }
+
+    if (options?.immediate) {
+      callback(this.#value);
       return () => {};
     }
 

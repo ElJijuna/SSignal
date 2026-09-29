@@ -698,3 +698,62 @@ describe('SSignal already-aborted subscriptions', () => {
     expect(callback).not.toHaveBeenCalled();
   });
 });
+
+describe('SSignal.once() with immediate', () => {
+  it('should call the callback synchronously with the current value', () => {
+    const signal = new SSignal(7);
+    const callback = jest.fn();
+
+    signal.once(callback, { immediate: true });
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith(7);
+  });
+
+  it('should count the immediate call as its only call', () => {
+    const signal = new SSignal(0);
+    const callback = jest.fn();
+
+    signal.once(callback, { immediate: true });
+    signal.value = 1;
+    signal.value = 2;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith(0);
+  });
+
+  it('should leave no listener behind', () => {
+    const signal = new SSignal(0);
+    const addSpy = jest.spyOn(signal, 'addEventListener');
+    const controller = new AbortController();
+    const abortAddSpy = jest.spyOn(controller.signal, 'addEventListener');
+
+    const unsubscribe = signal.once(() => {}, { immediate: true, signal: controller.signal });
+
+    expect(addSpy).not.toHaveBeenCalled();
+    expect(abortAddSpy).not.toHaveBeenCalled();
+    expect(() => unsubscribe()).not.toThrow();
+  });
+
+  it('should not call the callback when the AbortSignal is already aborted', () => {
+    const signal = new SSignal(0);
+    const controller = new AbortController();
+    controller.abort();
+    const callback = jest.fn();
+
+    signal.once(callback, { immediate: true, signal: controller.signal });
+
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it('should wait for the next change when immediate is false', () => {
+    const signal = new SSignal(0);
+    const callback = jest.fn();
+
+    signal.once(callback, { immediate: false });
+    expect(callback).not.toHaveBeenCalled();
+
+    signal.value = 1;
+    expect(callback).toHaveBeenCalledWith(1);
+  });
+});

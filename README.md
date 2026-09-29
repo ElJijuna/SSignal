@@ -57,7 +57,7 @@ npm install ssignal
 | `signal.value = newValue \| (prev: T) => T` | Sets a new value. Accepts a direct value or an updater function. No event is fired when the value does not change. |
 | `signal.mutate(mutator)` | Mutates the value in place (arrays, objects…) and fires one change event afterwards. Return `false` from the mutator to skip the event. Throws on computed signals. |
 | `signal.subscribe(callback, options?)` | Registers a listener called on every change. Returns an `Unsubscribe` function. Options: `SubscribeOptions`. |
-| `signal.once(callback, options?)` | Registers a listener called only on the next change, then unsubscribes automatically. Returns an `Unsubscribe` function. Options: `OnceOptions`. |
+| `signal.once(callback, options?)` | Registers a listener called only on the next change, then unsubscribes automatically. Returns an `Unsubscribe` function. Options: `OnceOptions`. With `immediate`, it runs right away with the current value instead, and that is its only call. |
 | `computed(source, fn, options?)` | Creates a read-only `ComputedSignal` derived from one source. Accepts the same `equals` option. |
 | `computed([...sources], fn, options?)` | Creates a read-only `ComputedSignal` derived from multiple sources. Accepts the same `equals` option. |
 | `signal.dispose()` | Removes every `subscribe()`/`once()` subscription at once. The signal stays usable. Also available as `[Symbol.dispose]()` for `using`. |
@@ -76,7 +76,7 @@ import type { OnceOptions, SSignalOptions, SubscribeOptions, Unsubscribe } from 
 | :--- | :--------- |
 | `Unsubscribe` | `() => void` |
 | `SubscribeOptions` | `{ signal?: AbortSignal; immediate?: boolean }` |
-| `OnceOptions` | `{ signal?: AbortSignal }` |
+| `OnceOptions` | `{ signal?: AbortSignal; immediate?: boolean }` |
 | `SSignalOptions<T>` | `{ equals?: (prev: T, next: T) => boolean }` |
 
 ### Events
@@ -313,13 +313,14 @@ const checkout = new SSignal<CheckoutState>({ status: 'idle' });
 function openCheckout(orderId: string) {
   const controller = new AbortController();
 
+  checkout.value = { status: 'processing', orderId };
+
+  // Registered after 'processing', so it reacts to the next state: the payment result
   checkout.once((state) => {
     if (state.status === 'paid') {
       window.location.assign(state.receiptUrl);
     }
   }, { signal: controller.signal });
-
-  checkout.value = { status: 'processing', orderId };
 
   return {
     close: () => controller.abort(),
@@ -335,6 +336,15 @@ checkout.value = {
 }; // redirects once
 
 modal.close(); // no effect after the one-time listener has already fired
+```
+
+With `{ immediate: true }`, `once()` runs the callback right away with the current value instead of waiting for a change. That is its only call, so nothing stays registered:
+
+```ts
+const config = new SSignal({ theme: 'dark' });
+
+config.once((c) => applyTheme(c.theme), { immediate: true }); // runs now, once
+config.value = { theme: 'light' }; // not called again
 ```
 
 ### Computed signals
