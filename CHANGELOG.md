@@ -1,3 +1,22 @@
+# [1.9.0](https://github.com/ElJijuna/ssignal/compare/v1.8.0...v1.9.0) (2026-09-29)
+
+
+### Features
+
+* add batch processing for signal updates and improve notification handling ([eebd7a2](https://github.com/ElJijuna/ssignal/commit/eebd7a2b072349dc0bfc3fd00933c8055ef4ead7))
+* add dispose() and Symbol.dispose to SSignal ([e070a43](https://github.com/ElJijuna/ssignal/commit/e070a43b317e7c649da64e0ec88836aff8305035))
+* add effect() for side effects with cleanup ([902338e](https://github.com/ElJijuna/ssignal/commit/902338e92987617568d96e3753ef38881777c6cb))
+* add equals option to SSignal and computed ([6e1e4d5](https://github.com/ElJijuna/ssignal/commit/6e1e4d521edc3fa779370f9af2379583e7599917))
+* enhance garbage collection handling in computed signals and improve event listener management ([13ce6f4](https://github.com/ElJijuna/ssignal/commit/13ce6f4810599b9517e9a8908234bc0a6dc56e6e))
+* export Unsubscribe, SubscribeOptions and OnceOptions types ([cc55b45](https://github.com/ElJijuna/ssignal/commit/cc55b45035708db1b88be72eb348f2f1ec02cbf7)), closes [#19](https://github.com/ElJijuna/ssignal/issues/19)
+* implement in-place mutation notifications for computed signals ([6b6dc86](https://github.com/ElJijuna/ssignal/commit/6b6dc86f601a22dfc354089f9ac668c6528b6a78))
+* support immediate option in once() ([9affee9](https://github.com/ElJijuna/ssignal/commit/9affee92cd5741cf783794df1156ecb0799e467d))
+
+
+### Performance Improvements
+
+* cache Map/Set proxy methods and copy computed sources ([80a9399](https://github.com/ElJijuna/ssignal/commit/80a9399edbb9634d09004b5a7f6e445337b239e1))
+
 # [1.8.0](https://github.com/ElJijuna/ssignal/compare/v1.7.0...v1.8.0) (2026-09-28)
 
 
