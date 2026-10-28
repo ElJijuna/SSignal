@@ -81,7 +81,10 @@ export function effect(
 
   const execute = (values: unknown[]) => {
     lastRunValues = values;
-    cleanup?.();
+    // Cleared first so a cleanup is never called twice when it, or the next run, throws.
+    const previousCleanup = cleanup;
+    cleanup = undefined;
+    previousCleanup?.();
     cleanup = run(single ? values[0] : values);
   };
 
@@ -116,7 +119,14 @@ export function effect(
   };
 
   options?.signal?.addEventListener('abort', dispose, { once: true });
-  execute(seenValues.slice());
+
+  // The caller never gets `dispose` if the first run throws, so release the subscriptions here.
+  try {
+    execute(seenValues.slice());
+  } catch (error) {
+    dispose();
+    throw error;
+  }
 
   return dispose;
 }

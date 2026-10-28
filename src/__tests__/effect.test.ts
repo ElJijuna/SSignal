@@ -64,6 +64,21 @@ describe('effect()', () => {
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
+  it('should release its subscriptions when the first run throws', () => {
+    const count = new SSignal(1);
+    const controller = new AbortController();
+    const removeSpy = jest.spyOn(controller.signal, 'removeEventListener');
+    const fn = jest.fn(() => {
+      throw new Error('boom');
+    });
+
+    expect(() => effect(count, fn, { signal: controller.signal })).toThrow('boom');
+    count.value = 2;
+
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+  });
+
   it('should dispose when the AbortSignal aborts', () => {
     const count = new SSignal(1);
     const controller = new AbortController();
