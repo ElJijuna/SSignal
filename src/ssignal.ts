@@ -199,7 +199,13 @@ export default class SSignal<T = unknown> extends EventTarget {
     }
 
     if (options?.immediate) {
-      callback(this.#value);
+      // The caller never gets `unsubscribe` if the immediate call throws, so remove it here.
+      try {
+        callback(this.#value);
+      } catch (error) {
+        unsubscribe();
+        throw error;
+      }
     }
 
     return unsubscribe;

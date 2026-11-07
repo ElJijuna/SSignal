@@ -196,6 +196,23 @@ describe('SSignal', () => {
     expect(callback).toHaveBeenCalledTimes(1);
   });
 
+  it('should not stay subscribed when the immediate call throws', () => {
+    const signal = new SSignal<number>(5);
+    const controller = new AbortController();
+    const removeSpy = jest.spyOn(controller.signal, 'removeEventListener');
+    const callback = jest.fn(() => {
+      throw new Error('boom');
+    });
+
+    expect(() =>
+      signal.subscribe(callback, { signal: controller.signal, immediate: true }),
+    ).toThrow('boom');
+    signal.value = 6;
+
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(removeSpy).toHaveBeenCalledWith('abort', expect.any(Function));
+  });
+
   it('should not dispatch when a primitive value is set to the same value', () => {
     const signal = new SSignal<number>(5);
     const callback = jest.fn();
