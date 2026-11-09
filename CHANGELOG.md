@@ -1,3 +1,10 @@
+# [1.10.0](https://github.com/ElJijuna/ssignal/compare/v1.9.1...v1.10.0) (2026-11-09)
+
+
+### Features
+
+* ensure immediate subscription does not persist on error ([0035d57](https://github.com/ElJijuna/ssignal/commit/0035d57afec7417e2a168f97d013dbd89fb16001))
+
 ## [1.9.1](https://github.com/ElJijuna/ssignal/compare/v1.9.0...v1.9.1) (2026-09-29)
 
 
