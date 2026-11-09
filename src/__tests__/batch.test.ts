@@ -129,6 +129,20 @@ describe('batch()', () => {
     expect(callback).toHaveBeenCalledWith(1);
   });
 
+  it('should rethrow the callback error rather than a flush error', () => {
+    const looping = new SSignal(0);
+    looping.subscribe(() => {
+      looping.value = (n) => n + 1;
+    });
+
+    expect(() =>
+      batch(() => {
+        looping.value = 1;
+        throw new Error('boom');
+      }),
+    ).toThrow('boom');
+  });
+
   it('should notify immediately again once the batch is over', () => {
     const signal = new SSignal(0);
     const callback = jest.fn();

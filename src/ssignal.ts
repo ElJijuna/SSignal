@@ -410,15 +410,28 @@ export default class SSignal<T = unknown> extends EventTarget {
  */
 export function batch<R>(fn: () => R): R {
   batchDepth++;
+  let result: R;
 
   try {
-    return fn();
-  } finally {
-    batchDepth--;
-
-    if (batchDepth === 0) {
-      flushBatch();
+    result = fn();
+  } catch (error) {
+    try {
+      endBatch();
+    } catch {
+      // The error from fn takes precedence over one raised while flushing.
     }
+    throw error;
+  }
+
+  endBatch();
+  return result;
+}
+
+function endBatch(): void {
+  batchDepth--;
+
+  if (batchDepth === 0) {
+    flushBatch();
   }
 }
 
