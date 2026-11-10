@@ -316,6 +316,72 @@ describe('computed()', () => {
       expect(ref?.deref()).toBeUndefined();
     });
 
+    it('should allow collection after a `once` listener fires', async () => {
+      const count = new SSignal(1);
+      let ref: WeakRef<ComputedSignal<number>>;
+
+      (() => {
+        const doubled = computed(count, (n) => n * 2);
+        doubled.addEventListener('change', () => {}, { once: true });
+        ref = new WeakRef(doubled);
+      })();
+
+      count.value = 2;
+      await collectGarbage();
+
+      expect(ref?.deref()).toBeUndefined();
+    });
+
+    it('should allow collection after the AbortSignal of a listener aborts', async () => {
+      const count = new SSignal(1);
+      let ref: WeakRef<ComputedSignal<number>>;
+
+      (() => {
+        const controller = new AbortController();
+        const doubled = computed(count, (n) => n * 2);
+        doubled.addEventListener('change', () => {}, { signal: controller.signal });
+        ref = new WeakRef(doubled);
+        controller.abort();
+      })();
+
+      await collectGarbage();
+
+      expect(ref?.deref()).toBeUndefined();
+    });
+
+    it('should not be kept alive by a listener added with an already aborted signal', async () => {
+      const count = new SSignal(1);
+      let ref: WeakRef<ComputedSignal<number>>;
+
+      (() => {
+        const doubled = computed(count, (n) => n * 2);
+        doubled.addEventListener('change', () => {}, { signal: AbortSignal.abort() });
+        ref = new WeakRef(doubled);
+      })();
+
+      await collectGarbage();
+
+      expect(ref?.deref()).toBeUndefined();
+    });
+
+    it('should stay alive when a listener is re-added without `once` after removal', async () => {
+      const count = new SSignal(1);
+      const callback = jest.fn();
+
+      (() => {
+        const doubled = computed(count, (n) => n * 2);
+        doubled.addEventListener('change', callback, { once: true });
+        doubled.removeEventListener('change', callback);
+        doubled.addEventListener('change', callback);
+      })();
+
+      count.value = 2;
+      await collectGarbage();
+      count.value = 3;
+
+      expect(callback).toHaveBeenCalledTimes(2);
+    });
+
     it('should allow collection after dispose() even with active subscriptions', async () => {
       const count = new SSignal(1);
       let ref: WeakRef<ComputedSignal<number>>;

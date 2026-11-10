@@ -32,7 +32,9 @@ const registry = new FinalizationRegistry<() => void>((dispose) => dispose());
 export class ComputedSignal<T> extends SSignal<T> {
   #dispose: () => void;
   #retainer: { self?: ComputedSignal<T> };
-  #listeners = new Set<EventListenerOrEventListenerObject>();
+  // Each `change` listener maps to a token of its current registration, so a stale `once` or
+  // abort release cannot forget a listener that was removed and added again.
+  #listeners = new Map<EventListenerOrEventListenerObject, object>();
 
   /** @internal */
   constructor(
@@ -106,10 +108,29 @@ export class ComputedSignal<T> extends SSignal<T> {
   ): void {
     super.addEventListener(type, callback, options);
 
-    if (type === 'change' && callback) {
-      this.#listeners.add(callback);
-      this.#retainer.self = this;
+    if (type !== 'change' || !callback || this.#listeners.has(callback)) {
+      return;
     }
+
+    const flags = typeof options === 'object' ? options : undefined;
+    if (flags?.signal?.aborted) {
+      return;
+    }
+
+    const token = {};
+    this.#listeners.set(callback, token);
+    this.#retainer.self = this;
+
+    // The runtime drops `once` and aborted listeners itself, without calling removeEventListener.
+    const release = () => {
+      if (this.#listeners.get(callback) === token) {
+        this.#forget(callback);
+      }
+    };
+    if (flags?.once) {
+      super.addEventListener('change', release, { once: true });
+    }
+    flags?.signal?.addEventListener('abort', release, { once: true });
   }
 
   override removeEventListener(
@@ -119,7 +140,13 @@ export class ComputedSignal<T> extends SSignal<T> {
   ): void {
     super.removeEventListener(type, callback, options);
 
-    if (type === 'change' && callback && this.#listeners.delete(callback)) {
+    if (type === 'change' && callback) {
+      this.#forget(callback);
+    }
+  }
+
+  #forget(callback: EventListenerOrEventListenerObject): void {
+    if (this.#listeners.delete(callback)) {
       this.#retainer.self = this.#listeners.size > 0 ? this : undefined;
     }
   }
