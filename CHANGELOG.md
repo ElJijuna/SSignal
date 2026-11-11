@@ -1,3 +1,11 @@
+# [1.11.0](https://github.com/ElJijuna/ssignal/compare/v1.10.0...v1.11.0) (2026-11-11)
+
+
+### Features
+
+* enhance listener management in ComputedSignal for better garbage collection ([490d8d1](https://github.com/ElJijuna/ssignal/commit/490d8d1fc24eedeab423daa81b201c2a896bdf6b))
+* rethrow callback errors in batch function instead of flush errors ([aa5ba31](https://github.com/ElJijuna/ssignal/commit/aa5ba31a0b8c8529af740f6d89263103cef9ec11))
+
 ## [1.9.1](https://github.com/ElJijuna/ssignal/compare/v1.9.0...v1.9.1) (2026-09-29)
 
 
