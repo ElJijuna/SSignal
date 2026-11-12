@@ -64,6 +64,38 @@ describe('effect()', () => {
     expect(cleanup).toHaveBeenCalledTimes(1);
   });
 
+  it('should call the cleanup of a run that disposes its own effect', () => {
+    const count = new SSignal(1);
+    const cleanup = jest.fn();
+
+    const stop = effect(count, (n) => {
+      if (n === 2) {
+        stop();
+      }
+      return cleanup;
+    });
+    count.value = 2;
+
+    expect(cleanup).toHaveBeenCalledTimes(2);
+  });
+
+  it('should call the cleanup of a first run that aborts its own signal', () => {
+    const count = new SSignal(1);
+    const controller = new AbortController();
+    const cleanup = jest.fn();
+
+    effect(
+      count,
+      () => {
+        controller.abort();
+        return cleanup;
+      },
+      { signal: controller.signal },
+    );
+
+    expect(cleanup).toHaveBeenCalledTimes(1);
+  });
+
   it('should release its subscriptions when the first run throws', () => {
     const count = new SSignal(1);
     const controller = new AbortController();

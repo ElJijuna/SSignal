@@ -85,7 +85,15 @@ export function effect(
     const previousCleanup = cleanup;
     cleanup = undefined;
     previousCleanup?.();
-    cleanup = run(single ? values[0] : values);
+    const nextCleanup = run(single ? values[0] : values);
+
+    // The run may have disposed the effect (calling dispose or aborting its signal); by then
+    // dispose has already run, so undo this run right away instead of keeping its cleanup.
+    if (active) {
+      cleanup = nextCleanup;
+    } else {
+      nextCleanup?.();
+    }
   };
 
   const unsubscribers = sources.map((source, index) =>
