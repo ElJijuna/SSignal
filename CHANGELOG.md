@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/ElJijuna/ssignal/compare/v1.11.0...v1.12.0) (2026-11-17)
+
+
+### Features
+
+* add cleanup tests for effect() to ensure proper resource management ([d3511f9](https://github.com/ElJijuna/ssignal/commit/d3511f90f636416bfbeae4b18fe395d514007039))
+
 ## [1.9.1](https://github.com/ElJijuna/ssignal/compare/v1.9.0...v1.9.1) (2026-09-29)
 
 
